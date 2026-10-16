@@ -76,7 +76,7 @@ const GH = {
   async getJSON(path) {
     const r = await fetch(this.url(path) + "?t=" + Date.now(), { headers: this.headers({ Accept: "application/vnd.github+json" }), cache: "no-store" });
     if (r.status === 404) return { data: null, sha: null };
-    if (!r.ok) throw new Error("GitHub said " + r.status + (r.status === 401 ? " (token wrong or expired)" : ""));
+    if (!r.ok) throw new Error(r.status === 401 ? "Sync token is wrong or expired" : r.status === 404 ? "Can't find that private repo. Check the name in Settings" : "GitHub said " + r.status);
     const j = await r.json();
     let content = j.content;
     if (!content && j.download_url) {
@@ -104,22 +104,34 @@ const GH = {
   },
 };
 
-/* ---------- merge logic ---------- */
+/* ---------- merge logic (two devices never lose each other's work) ---------- */
+function newest(a, b) { if (!a) return b; if (!b) return a; return (a.at || 0) >= (b.at || 0) ? a : b; }
+function mergeById(a = [], b = []) {
+  const m = new Map();
+  [...b, ...a].forEach(x => m.set(x.id, newest(x, m.get(x.id))));
+  return [...m.values()];
+}
 function mergeProgress(a = {}, b = {}) {
   const out = {};
   out.xp = Math.max(a.xp || 0, b.xp || 0);
   const sa = a.streak || {}, sb = b.streak || {};
   out.streak = (sa.last || "") >= (sb.last || "") ? sa : sb;
-  out.lessonsDone = { ...(b.lessonsDone || {}), ...(a.lessonsDone || {}) };
-  out.nailed = { ...(b.nailed || {}), ...(a.nailed || {}) };
+  for (const k of ["lessonsDone", "goalSkips", "lessonDays"]) out[k] = { ...(b[k] || {}), ...(a[k] || {}) };
   out.best = {};
   for (const src of [a.best || {}, b.best || {}]) for (const k in src) out.best[k] = Math.max(out.best[k] || 0, src[k]);
   out.songPrefs = {};
-  for (const src of [b.songPrefs || {}, a.songPrefs || {}]) for (const k in src) {
-    if (!out.songPrefs[k] || (src[k].at || 0) > (out.songPrefs[k].at || 0)) out.songPrefs[k] = src[k];
+  for (const src of [b.songPrefs || {}, a.songPrefs || {}]) for (const k in src) out.songPrefs[k] = newest(src[k], out.songPrefs[k]);
+  out.chordMarks = {};
+  for (const src of [b.chordMarks || {}, a.chordMarks || {}]) for (const k in src) out.chordMarks[k] = newest(src[k], out.chordMarks[k]);
+  out.mastery = {};
+  for (const src of [b.mastery || {}, a.mastery || {}]) for (const k in src) {
+    const cur = out.mastery[k] || { best: 0, sessions: [] }, add = src[k];
+    const seen = new Set(cur.sessions.map(x => x.d + "|" + x.score));
+    const sessions = [...cur.sessions, ...(add.sessions || []).filter(x => !seen.has(x.d + "|" + x.score))].sort((x, y) => x.d < y.d ? -1 : 1).slice(-40);
+    out.mastery[k] = { best: Math.max(cur.best || 0, add.best || 0), sessions };
   }
-  out.singers = (a.singersAt || 0) >= (b.singersAt || 0) ? a.singers : b.singers;
-  out.singersAt = Math.max(a.singersAt || 0, b.singersAt || 0);
+  out.people = mergeById(a.people, b.people);
+  out.lists = mergeById(a.lists, b.lists);
   return out;
 }
 function mergeSongs(a = {}, b = {}) {

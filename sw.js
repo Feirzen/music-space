@@ -1,17 +1,19 @@
 /* Service worker: saves the whole app on the device so it opens with no signal.
-   Bump VERSION whenever app files change so phones pick up the new copy. */
-const VERSION = "ms-v1";
-const APP = ["./", "index.html", "styles.css", "theory.js", "data.js", "audio.js", "sync.js", "app.js",
-  "manifest.webmanifest", "icons/favicon.svg", "icons/favicon-32.png", "icons/apple-touch-icon.png",
-  "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png"];
-const PDFJS = ["https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
-  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"];
+   VERSION changes whenever app files change, so phones pick up the new copy. */
+const VERSION = "ms-v2.0";
+const APP = ["./", "index.html", "styles.css", "theory.js", "audio.js", "data.js", "hints.js", "sync.js", "importer.js", "ambient.js",
+  "core.js", "library.js", "practice.js", "path.js", "app.js", "manifest.webmanifest",
+  "icons/favicon.svg", "icons/favicon-32.png", "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png"];
+const EXTERNAL = ["https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
+  "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap"];
+const CACHE_HOSTS = ["cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"];
 
 self.addEventListener("install", e => {
   e.waitUntil((async () => {
     const c = await caches.open(VERSION);
-    await Promise.all(APP.map(u => c.add(u).catch(() => {})));
-    await Promise.all(PDFJS.map(u => c.add(new Request(u, { mode: "cors" })).catch(() => {})));
+    await Promise.all(APP.map(u => c.add(new Request(u, { cache: "reload" })).catch(() => {})));
+    await Promise.all(EXTERNAL.map(u => c.add(new Request(u, { mode: "cors" })).catch(() => {})));
     self.skipWaiting();
   })());
 });
@@ -24,16 +26,12 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET") return;
-  if (url.hostname === "api.github.com") return;            // sync always goes to the network
-  if (url.hostname.includes("spotify")) return;
   const isApp = url.origin === location.origin;
-  const isCdn = url.hostname === "cdnjs.cloudflare.com";
-  if (!isApp && !isCdn) return;
-  // app files: use the saved copy right away, refresh it in the background
+  if (!isApp && !CACHE_HOSTS.includes(url.hostname)) return;   // GitHub sync, Spotify etc. always go to the network
   e.respondWith((async () => {
     const c = await caches.open(VERSION);
     const hit = await c.match(e.request, { ignoreSearch: isApp });
-    const net = fetch(e.request).then(r => { if (r.ok) c.put(e.request, r.clone()); return r; }).catch(() => null);
+    const net = fetch(e.request).then(r => { if (r.ok || r.type === "opaque") c.put(e.request, r.clone()); return r; }).catch(() => null);
     if (hit) { e.waitUntil(net); return hit; }
     const r = await net;
     if (r) return r;

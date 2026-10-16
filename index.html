@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Music Space</title>
 <meta name="description" content="Campfire guitar: songs, practice games, a tuner and a lesson path. Works offline.">
-<meta name="theme-color" id="themeColorMeta" content="#0f0f13">
+<meta name="theme-color" id="themeColorMeta" content="#0a1214">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Music Space">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
@@ -19,36 +19,54 @@
 <meta property="og:image" content="https://feirzen.github.io/music-space/icons/og-image.png">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="styles.css">
 <script>
-  /* paint the saved theme before anything shows, so there's no flash */
   try { const s = JSON.parse(localStorage.getItem("ms.state") || "{}"); if (s.theme) document.documentElement.dataset.theme = s.theme; } catch (e) {}
 </script>
 </head>
 <body>
+  <canvas id="ambient" aria-hidden="true"></canvas>
   <header class="top">
-    <button id="backBtn" class="iconBtn" aria-label="Back" hidden>‹</button>
-    <img src="icons/favicon.svg" class="logo" alt="">
+    <button id="backBtn" class="iconBtn" aria-label="Back" hidden></button>
+    <img id="logo" src="icons/favicon.svg" class="logo" alt="">
     <h1 id="title">Music Space</h1>
     <span id="syncDot" class="syncDot" data-st="off"></span>
-    <button id="gear" class="iconBtn" aria-label="Settings">⚙︎</button>
+    <button id="gear" class="iconBtn" aria-label="Settings"></button>
   </header>
 
   <main id="main"></main>
 
-  <nav class="tabs">
-    <button class="tab" data-tab="library"><span>🎵</span>Library</button>
-    <button class="tab" data-tab="practice"><span>🎮</span>Practice</button>
-    <button class="tab" data-tab="path"><span>🛤️</span>Path</button>
+  <button id="timerPill" class="timerPill" hidden></button>
+
+  <nav class="tabs" aria-label="Sections">
+    <button class="tab" data-tab="library" data-icon="notes"><span class="tabIcon"></span>Library</button>
+    <button class="tab" data-tab="practice" data-icon="guitar"><span class="tabIcon"></span>Practice</button>
+    <button class="tab" data-tab="path" data-icon="mountains"><span class="tabIcon"></span>Path</button>
   </nav>
 
+  <div id="sheet" class="sheetWrap" hidden>
+    <div id="sheetScrim" class="sheetScrim"></div>
+    <div class="sheetPanel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="sheetHead"><span class="grabber"></span><h2 id="sheetTitle"></h2><button id="sheetClose" class="iconBtn" aria-label="Close"></button></div>
+      <div id="sheetBody" class="sheetBody"></div>
+    </div>
+  </div>
   <div id="modal" class="modal" hidden></div>
-  <div id="toast" class="toast"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="theory.js"></script>
-  <script src="data.js"></script>
   <script src="audio.js"></script>
+  <script src="data.js"></script>
+  <script src="hints.js"></script>
   <script src="sync.js"></script>
+  <script src="importer.js"></script>
+  <script src="ambient.js"></script>
+  <script src="core.js"></script>
+  <script src="library.js"></script>
+  <script src="practice.js"></script>
+  <script src="path.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
