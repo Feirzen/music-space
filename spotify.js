@@ -15,8 +15,14 @@ const spGet = k => { try { return localStorage.getItem(k); } catch (e) { return 
 const spSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} };
 const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
+/* your Spotify developer app. A Client ID is public (it's not a password), so it lives in the code and no device ever asks for it */
+const SP_CLIENT_ID = "f64eab8b137e41d8ab3eae8ba4a1446c";
+/* what kind of Spotify device this screen is, so playback lands here and not on a speaker */
+const myDeviceType = () => /iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) ? "Tablet"
+  : /iPhone|Android.*Mobile|Mobile/.test(navigator.userAgent) ? "Smartphone" : "Computer";
+
 const Spot = {
-  get clientId() { return (App.state.spotify || {}).clientId || ""; },
+  get clientId() { return (App.state.spotify || {}).clientId || SP_CLIENT_ID; },
   tokens() { try { return JSON.parse(spGet("ms.sp.tok") || "null"); } catch (e) { return null; } },
   connected() { return !!(this.clientId && this.tokens()); },
 
@@ -42,7 +48,7 @@ const Spot = {
       await this.tokenCall({ grant_type: "authorization_code", code: p.get("code"), redirect_uri: spRedirect(), client_id: this.clientId, code_verifier: ver });
       spSet("ms.sp.ver", null); spSet("ms.sp.state", null);
       App.toast("Spotify connected"); AudioKit.sfx.good();
-      setTimeout(() => Spot.syncPlaylist(true), 800);
+      setTimeout(async () => { try { if (GH.ready()) await Sync.run(true); } catch (e) {} Spot.syncPlaylist(true); }, 800);
     } catch (e) { App.toast(e.message); }
     return true;
   },
@@ -88,21 +94,32 @@ const Spot = {
 
   /* ---------- remote control ---------- */
   async state() { return this.api("GET", "/me/player"); },
+  async devices() { const d = await this.api("GET", "/me/player/devices"); return (d && d.devices) || []; },
+  /* the device to play on: the one you picked on this screen, else a device of this screen's type, never a speaker on its own */
+  pickDevice(devs) {
+    const saved = spGet("ms.sp.dev");
+    const mine = devs.find(x => x.id === saved);
+    if (mine) return mine;
+    const t = myDeviceType();
+    const same = devs.filter(x => x.type === t);
+    const named = same.find(x => new RegExp(t === "Smartphone" ? "iphone|phone|android" : t === "Tablet" ? "ipad|tablet" : "pc|mac|desktop|laptop|computer", "i").test(x.name));
+    return named || same.find(x => x.is_active) || same[0] || null;
+  },
+  async target() {
+    const devs = await this.devices();
+    const dev = this.pickDevice(devs);
+    if (!dev) { const e = new Error(`Waking up Spotify on this ${myDeviceType() === "Computer" ? "computer" : myDeviceType() === "Tablet" ? "iPad" : "phone"}…`); e.wake = true; e.devs = devs; throw e; }
+    return dev;
+  },
   async play(song) {
     const uri = await this.uriFor(song);
     if (!uri) throw new Error("Couldn't find this song on Spotify");
-    try { await this.api("PUT", "/me/player/play", { uris: [uri] }); }
-    catch (e) {
-      if (e.status !== 404) throw e;
-      const d = await this.api("GET", "/me/player/devices");
-      const devs = (d && d.devices) || [];
-      const dev = devs.find(x => x.is_active) || devs.find(x => x.type === "Smartphone") || devs[0];
-      if (!dev) { const err = new Error("Open the Spotify app for a second so it wakes up, then tap play again"); err.wake = true; throw err; }
-      await this.api("PUT", "/me/player/play?device_id=" + dev.id, { uris: [uri] });
-    }
+    const dev = await this.target();
+    await this.api("PUT", "/me/player/play?device_id=" + dev.id, { uris: [uri] });
+    this.dev = dev;
   },
-  pause() { return this.api("PUT", "/me/player/pause"); },
-  resume() { return this.api("PUT", "/me/player/play"); },
+  async pause() { const st = await this.state(); return this.api("PUT", "/me/player/pause" + (st && st.device ? "?device_id=" + st.device.id : "")); },
+  async resume() { const dev = await this.target(); return this.api("PUT", "/me/player/play?device_id=" + dev.id); },
   seek(ms) { return this.api("PUT", "/me/player/seek?position_ms=" + Math.max(0, Math.round(ms))); },
 
   /* ---------- the "Music Space" playlist ---------- */
@@ -112,10 +129,20 @@ const Spot = {
     this.busy = true;
     try {
       const sp = App.state.spotify;
-      if (sp.playlistId) {
-        try { await this.api("GET", "/playlists/" + sp.playlistId + "?fields=id"); }
-        catch (e) { if (e.status === 404) sp.playlistId = ""; else throw e; }
+      // one playlist only: find every "Music Space" playlist this app made, keep one, remove the extras
+      const mine = [];
+      let pn = "/me/playlists?limit=50";
+      while (pn) {
+        const page = await this.api("GET", pn);
+        (page.items || []).forEach(p => { if (p && p.name === "Music Space" && /Music Space library/i.test(p.description || "")) mine.push(p); });
+        pn = page.next ? page.next.replace(SP_API, "") : null;
       }
+      if (mine.length) {
+        const count = p => ((p.items || p.tracks || {}).total) || 0;
+        const keep = mine.find(p => p.id === sp.playlistId) || mine.sort((a, b) => count(b) - count(a))[0];
+        for (const p of mine) if (p.id !== keep.id) { try { await this.api("DELETE", "/playlists/" + p.id + "/followers"); } catch (e) {} }
+        if (sp.playlistId !== keep.id) { sp.playlistId = keep.id; sp.at = Date.now(); App.save(); }
+      } else if (sp.playlistId) sp.playlistId = "";
       if (!sp.playlistId) {
         const pl = await this.api("POST", "/me/playlists", { name: "Music Space", public: false,
           description: "Every song in my Music Space library. Turn on Download to keep them offline." });
@@ -154,7 +181,7 @@ function spotBarHTML(song) {
     <button class="spBtn" data-act="spSeek" data-d="-15000" aria-label="Back 15 seconds">${icon("rewind", 16)}</button>
     <button class="spBtn" data-act="spSeek" data-d="15000" aria-label="Forward 15 seconds">${icon("forward", 16)}</button>
     <div class="spInfo"><b id="spTitle">Play the original</b><div class="spTrack"><i id="spProg"></i></div></div>
-    <span class="spLogo">${icon("spotify", 18)}</span>
+    <button class="spBtn" data-act="spDevice" aria-label="Choose where it plays">${icon("speaker", 16)}</button>
   </div>`;
 }
 const SpotUI = {
@@ -195,9 +222,34 @@ ACT.spPlay = async (el, ctx) => {
     setTimeout(() => SpotUI.tick && SpotUI.tick(), 700);
   } catch (e) {
     App.toast(e.message);
-    if (e.wake) setTimeout(() => openSpotify(song.spotify, song.title + " " + (song.artist || "")), 400);
+    if (e.wake) wakeSpotify(song);
   }
 };
+/* Spotify on a phone only shows up as a device while its app is awake: open it, and when you come back, play here */
+function wakeSpotify(song) {
+  Spot.pending = { id: song.id, until: Date.now() + 90000 };
+  setTimeout(() => { location.href = "spotify:"; }, 500);
+}
+document.addEventListener("visibilitychange", async () => {
+  const p = Spot.pending;
+  if (document.visibilityState !== "visible" || !p || Date.now() > p.until) return;
+  Spot.pending = null;
+  const song = getSong(p.id); if (!song) return;
+  for (let i = 0; i < 3; i++) {
+    try { await Spot.play(song); SpotUI.playing = true; setTimeout(() => SpotUI.tick && SpotUI.tick(), 700); App.toast("Playing on this device"); return; }
+    catch (e) { if (!e.wake) { App.toast(e.message); return; } await new Promise(r => setTimeout(r, 1500)); }
+  }
+  App.toast("Spotify didn't show up. Pick where to play from the device button.");
+});
+ACT.spDevice = async () => {
+  try {
+    const devs = await Spot.devices(), cur = Spot.pickDevice(devs);
+    Modal.open(`<h3>Play on</h3><div class="menuList">${devs.length ? devs.map(d => `<button class="btn ${cur && cur.id === d.id ? "on" : "ghost"}" data-act="spPickDev" data-id="${esc(d.id)}">${icon(d.type === "Smartphone" ? "user" : d.type === "Speaker" ? "speaker" : "headphones", 16)} ${esc(d.name)} <small class="muted">${esc(d.type)}</small></button>`).join("")
+      : `<p class="hint">No Spotify devices are awake. Open the Spotify app on this device, then try again.</p>`}</div>
+      <p class="hint">Your pick is remembered on this device only.</p><button class="btn ghost full" data-act="closeModal">Close</button>`);
+  } catch (e) { App.toast(e.message); }
+};
+ACT.spPickDev = el => { spSet("ms.sp.dev", el.dataset.id); Modal.close(); App.toast("Got it. Songs will play there from this device."); };
 ACT.spSeek = async el => {
   try { const st = await Spot.state(); if (st && st.item) { await Spot.seek(st.progress_ms + +el.dataset.d); setTimeout(() => SpotUI.tick && SpotUI.tick(), 500); } }
   catch (e) { App.toast(e.message); }
@@ -210,23 +262,10 @@ function spotSettingsHTML() {
     ${on ? `<p class="hint">Connected. Song pages get play and pause buttons that control your Spotify app, and your <b>Music Space</b> playlist stays matched to your library${sp.lastSync ? " (updated " + new Date(sp.lastSync).toLocaleString() + ")" : ""}.</p>
       <div class="row wrap"><button class="btn on" data-act="spSync">${icon("refresh", 16)} Update playlist now</button><button class="btn ghost" data-act="spLogout">Disconnect</button></div>
       <p class="hint">In Spotify, open the Music Space playlist and turn on <b>Download</b> once. New songs download on their own after that.</p>`
-    : `<p class="hint">One-time setup, about 5 minutes. Follow the steps below, then paste your Client ID here.</p>
-      <label class="field">Client ID<input id="spCid" value="${esc(sp.clientId)}" placeholder="32 letters and numbers" autocomplete="off"></label>
-      <button class="btn on" data-act="spConnect">${icon("spotify", 16)} Connect Spotify</button>
-      <details class="steps"><summary>Setup steps</summary><ol>
-        <li>On a computer, go to <b>developer.spotify.com/dashboard</b> and log in with your Spotify account.</li>
-        <li>Tap <b>Create app</b>. Name: Music Space. Description: anything.</li>
-        <li>Redirect URI: paste exactly <code>${esc(spRedirect())}</code> and tap Add.</li>
-        <li>Under "Which API/SDKs are you planning to use", check <b>Web API</b>. Agree to the terms and Save.</li>
-        <li>Open the app's <b>Settings</b>, copy the <b>Client ID</b>, paste it above, then tap Connect Spotify and approve.</li>
-      </ol><p class="hint">Do the Connect step on each device you'll use (phone, iPad, laptop). The Client ID syncs, so you only paste it once.</p></details>`}
+    : `<p class="hint">Sign in once on each device. You'll get play and pause right on song pages, and a Music Space playlist that matches your library.</p>
+      <button class="btn on" data-act="spConnect">${icon("spotify", 16)} Connect Spotify</button>`}
   </div>`;
 }
-ACT.spConnect = (el, ctx) => {
-  const v = ($("#spCid", ctx.root).value || "").trim();
-  if (!/^[a-f0-9]{32}$/i.test(v)) return App.toast("That doesn't look like a Client ID (32 letters and numbers)");
-  App.state.spotify.clientId = v; App.state.spotify.at = Date.now(); App.save();
-  Spot.login();
-};
+ACT.spConnect = () => Spot.login();
 ACT.spSync = () => Spot.syncPlaylist(false);
 ACT.spLogout = (el, ctx) => { Spot.logout(); renderCtx(ctx); };
