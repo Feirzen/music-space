@@ -158,14 +158,14 @@ const Sync = {
       // download any PDFs we don't have yet
       for (const id in songs) {
         const s = songs[id];
-        if (s.type === "pdf" && s.file && !s.deleted && !(await IDB.get(s.file))) {
+        if (s.file && !s.deleted && !(await IDB.get(s.file))) {
           try { await IDB.put(s.file, await GH.getBlob(s.file)); } catch (e) { console.warn(e); }
         }
       }
       // upload any PDFs that only live here
       for (const id in songs) {
         const s = songs[id];
-        if (s.type === "pdf" && s.file && !s.uploaded && !s.deleted) {
+        if (s.file && !s.uploaded && !s.deleted) {
           const blob = await IDB.get(s.file);
           if (blob) {
             const existing = await GH.sha(s.file);

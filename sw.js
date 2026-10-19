@@ -1,6 +1,6 @@
 /* Service worker: saves the whole app on the device so it opens with no signal.
    VERSION changes whenever app files change, so phones pick up the new copy. */
-const VERSION = "ms-v2.0";
+const VERSION = "ms-v2.0.1";
 const APP = ["./", "index.html", "styles.css", "theory.js", "audio.js", "data.js", "hints.js", "sync.js", "importer.js", "ambient.js",
   "core.js", "library.js", "practice.js", "path.js", "app.js", "manifest.webmanifest",
   "icons/favicon.svg", "icons/favicon-32.png", "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png"];
