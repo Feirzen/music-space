@@ -16,6 +16,8 @@ VIEWS.settings = {
           <button class="btn small" data-act="chamRoll" ${s.chamLock ? "disabled" : ""}>New colors</button></div>
           <p class="hint">Chameleon picks new colors each time you change screens. Freeze one you love.</p>` : ""}
         <label class="check"><input type="checkbox" data-change="ambientToggle" ${s.ambient ? "checked" : ""}> Floating embers</label></div>
+      <div class="card"><b>Feedback</b><p class="hint">Spot something off, or have an idea? Flag it and it gets handled in the background.</p>
+        <div class="row wrap"><button class="btn small" data-act="flagPlant">Plant a flag</button><button class="btn small" data-act="flagGeneral">General feedback</button></div></div>
       <div class="card"><b>Sound</b>
         <label class="check"><input type="checkbox" data-change="soundToggle" ${s.sound.on ? "checked" : ""}> Sound effects</label>
         <div class="stepRow"><span>Volume</span><input type="range" min="0" max="1" step="0.05" value="${s.sound.vol}" data-input="soundVol" aria-label="Volume"></div>
@@ -53,6 +55,8 @@ ACT.ambientToggle = el => { App.state.ambient = el.checked; Ambient.set(el.check
 ACT.soundToggle = el => { App.state.sound.on = el.checked; AudioKit.setSound(el.checked, App.state.sound.vol); App.save(true); };
 ACT.soundVol = el => { App.state.sound.vol = +el.value; AudioKit.setSound(App.state.sound.on, +el.value); App.save(true); };
 ACT.soundTest = () => AudioKit.sfx.done();
+ACT.flagPlant = () => { if (window.Kit) setTimeout(() => Kit.flag.plant(), 0); };
+ACT.flagGeneral = () => { if (window.Kit) setTimeout(() => Kit.flag.general(), 0); };
 ACT.takesBackup = el => { App.state.takesBackup = el.checked; App.save(true); };
 ACT.saveSync = async (el, ctx) => {
   const s = App.state;
