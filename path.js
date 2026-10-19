@@ -41,9 +41,9 @@ VIEWS.path = {
 const CHAPTER_COLORS = ["", "var(--k-ember)", "var(--k-pink)", "var(--k-violet)", "var(--k-sky)", "var(--k-gold)"];
 function comingSoonHTML() {
   const w = INSTRUMENTS[INST()];
-  return `<div class="soon">${icon(INST() === "piano" ? "keys" : "guitar", 40)}
+  return `<div class="soon">${icon(w.icon, 40)}
     <h2>${w.label} Path · coming soon!</h2>
-    <p>Lessons for ${w.word} are on the way. Your ${w.word} library, ${INST() === "uke" ? "tuner, " : ""}metronome and chord games already work in ${w.word} mode.</p>
+    <p>${INST() === "voice" ? "Singing lessons are on the way. Your lyric sheets, markers, takes, pitch meter and range finder already work in voice mode." : `Lessons for ${w.word} are on the way. Your ${w.word} library, ${INST() === "uke" ? "tuner, " : ""}metronome and chord games already work in ${w.word} mode.`}</p>
     <div class="row wrap center"><button class="btn on" data-act="go" data-h="#/library">${icon("notes", 18)} ${w.label} library</button>
     <button class="btn" data-act="go" data-h="#/practice">${icon("bolt", 18)} Practice</button></div></div>
     <p class="hint center">Your guitar Path is still there. Switch to Guitar up top.</p>`;

@@ -14,7 +14,8 @@ const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ
 /* ===================== ICONS (clean SVG, no emoji) ===================== */
 const ICON = {
   notes: '<path d="M9 4.5v10.2A3.5 3.5 0 1 0 11 18V8.2l8-1.8v6.3A3.5 3.5 0 1 0 21 16V2.8z" fill="currentColor" stroke="none"/>',
-  guitar: '<path d="M20.7 2.3a1 1 0 0 1 0 1.4l-1.6 1.6.6.6-1.4 1.4-.6-.6-4.2 4.2a4.6 4.6 0 0 1 .5 4.6c-.9 1.9-3 2.1-3.7 3.4-1 2-3.4 3.4-5.6 1.2S2.9 15 4.9 14c1.3-.7 1.5-2.8 3.4-3.7a4.6 4.6 0 0 1 4.6.5l4.2-4.2-.6-.6L17.9 4.6l.6.6 1.6-1.6a1 1 0 0 1 1.4 0zM8.6 14.4a1.4 1.4 0 1 0 2 2 1.4 1.4 0 0 0-2-2z" fill="currentColor" stroke="none"/>',
+  guitar: '<g transform="rotate(40 12 12)" fill="currentColor" stroke="none"><rect x="10.7" y="0.4" width="2.6" height="2.8" rx=".7"/><rect x="11.3" y="2.6" width="1.4" height="6.8"/><path fill-rule="evenodd" d="M12 8.4c2.3 0 3.7 1.4 3.7 3 0 1.2-.8 1.7-.8 2.3 0 .6 2.3 1.5 2.3 4.1 0 3-2.4 5-5.2 5s-5.2-2-5.2-5c0-2.6 2.3-3.5 2.3-4.1 0-.6-.8-1.1-.8-2.3 0-1.6 1.4-3 3.7-3zM12 13.5a1.65 1.65 0 1 0 0 3.3 1.65 1.65 0 0 0 0-3.3zM10.4 19.2h3.2v.9h-3.2z"/></g>',
+  uke: '<g transform="rotate(40 12 12) translate(2.4 3) scale(.8)" fill="currentColor" stroke="none"><rect x="10.7" y="1.4" width="2.6" height="2.6" rx=".7"/><rect x="11.3" y="3.6" width="1.4" height="5.8"/><path fill-rule="evenodd" d="M12 8.4c2.3 0 3.7 1.4 3.7 3 0 1.2-.8 1.7-.8 2.3 0 .6 2.3 1.5 2.3 4.1 0 3-2.4 5-5.2 5s-5.2-2-5.2-5c0-2.6 2.3-3.5 2.3-4.1 0-.6-.8-1.1-.8-2.3 0-1.6 1.4-3 3.7-3zM12 13.5a1.65 1.65 0 1 0 0 3.3 1.65 1.65 0 0 0 0-3.3zM10.4 19.2h3.2v.9h-3.2z"/></g>',
   mountains: '<path d="M9 4l7.5 14H1.5z" fill="currentColor" stroke="none"/><path d="M17 8.5l6 9.5H12.8z" fill="currentColor" stroke="none" opacity=".65"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
   back: '<path d="M15 18l-6-6 6-6"/>',
@@ -61,6 +62,16 @@ const ICON = {
   diamond: '<path d="M12 3l8 9-8 9-8-9z"/>',
   ear: '<path d="M6 9a6 6 0 0 1 12 0c0 3-2 4-3 6s-1 4-3.5 4A2.5 2.5 0 0 1 9 16.5"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  pencil: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+  record: '<circle cx="12" cy="12" r="7" fill="currentColor" stroke="none"/>',
+  rec: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/>',
+  spotify: '<circle cx="12" cy="12" r="10" fill="currentColor" stroke="none"/><path d="M7 9.5c3.5-1 7.5-.7 10.5 1M7.6 12.6c3-.8 6.1-.5 8.6.9M8.3 15.5c2.4-.6 4.7-.4 6.7.7" stroke="var(--bg)" stroke-width="1.6"/>',
+  rewind: '<path d="M11 7l-6 5 6 5zM19 7l-6 5 6 5z" fill="currentColor" stroke="none"/>',
+  forward: '<path d="M13 7l6 5-6 5zM5 7l6 5-6 5z" fill="currentColor" stroke="none"/>',
+  filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
+  share: '<path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-9 8"/>',
   keys: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v10M12 4v16M16 4v10M8 14v6M16 14v6"/>',
   speaker: '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/>',
 };
@@ -84,6 +95,7 @@ const DEFAULT_STATE = () => ({
   timer: null,
   sync: { owner: "Feirzen", repo: "music-space-private", lastSync: 0 },
   instrument: "guitar",
+  vocals: {}, takes: {}, spotify: { clientId: "", playlistId: "", at: 0 }, spCache: {},
 });
 
 const App = {
@@ -110,6 +122,8 @@ const App = {
       st.v = 2;
     }
     st.sync = Object.assign(DEFAULT_STATE().sync, st.sync || {});
+    st.spotify = Object.assign(DEFAULT_STATE().spotify, st.spotify || {});
+    st.vocals = st.vocals || {}; st.takes = st.takes || {}; st.spCache = st.spCache || {};
     if (!Array.isArray(st.people) || !st.people.length) st.people = DEFAULT_PEOPLE();
     this.state = st;
     T.setInstrument(st.instrument);
@@ -124,7 +138,8 @@ const App = {
   progressSnapshot() {
     const s = this.state;
     return { xp: s.xp, streak: s.streak, lessonsDone: s.lessonsDone, goalSkips: s.goalSkips, lessonDays: s.lessonDays,
-             mastery: s.mastery, chordMarks: s.chordMarks, best: s.best, songPrefs: s.songPrefs, people: s.people, lists: s.lists };
+             mastery: s.mastery, chordMarks: s.chordMarks, best: s.best, songPrefs: s.songPrefs, people: s.people, lists: s.lists,
+             vocals: s.vocals, takes: s.takes, spotify: s.spotify };
   },
   applySynced(songs, p) {
     this.state.userSongs = songs;
@@ -159,8 +174,9 @@ const person = id => App.state.people.find(p => p.id === id);
 /* ===================== INSTRUMENTS ===================== */
 const INSTRUMENTS = {
   guitar: { label: "Guitar", word: "guitar", icon: "guitar" },
-  uke:    { label: "Uke", word: "uke", icon: "guitar" },
+  uke:    { label: "Uke", word: "uke", icon: "uke" },
   piano:  { label: "Piano", word: "piano", icon: "keys" },
+  voice:  { label: "Voice", word: "voice", icon: "mic" },
 };
 const INST = () => T.instrument;
 /* progress, prefs and chord marks are kept per instrument (guitar keeps the plain keys) */
@@ -172,7 +188,7 @@ function switchInstrument(i) {
   Router.render();
 }
 const songInst = s => s.inst || "guitar";
-const songHere = s => !s.type || songInst(s) === INST();
+const songHere = s => !s.type || INST() === "voice" || songInst(s) === INST();
 
 /* ===================== THEMES ===================== */
 const THEMES = {
@@ -211,7 +227,14 @@ function lockChameleon() {
 }
 
 /* ===================== SONGS ===================== */
-function allSongs(any) { return [...BUILTIN_SONGS, ...Object.values(App.state.userSongs || {}).filter(s => !s.deleted && (any || songHere(s)))]; }
+function allSongs(any) {
+  const list = [...BUILTIN_SONGS, ...Object.values(App.state.userSongs || {}).filter(s => !s.deleted && (any || songHere(s)))];
+  if (any || INST() !== "voice") return list;
+  // voice: one entry per song title, preferring the guitar copy
+  const by = new Map();
+  for (const s of list) { const k = norm(s.title), cur = by.get(k); if (!cur || (songInst(cur) !== "guitar" && songInst(s) === "guitar")) by.set(k, s); }
+  return [...by.values()];
+}
 function getSong(id) {
   return BUILTIN_SONGS.find(s => s.id === id) || (App.state.userSongs[id] && !App.state.userSongs[id].deleted ? App.state.userSongs[id] : null);
 }
@@ -329,7 +352,7 @@ function markDot(c) {
 
 /* ===================== ROUTER + SHEETS ===================== */
 const VIEWS = {};
-const TABS = { library: "library", song: "library", import: "library", practice: "practice", tuner: "practice", metro: "practice",
+const TABS = { library: "library", song: "library", import: "library", takes: "practice", practice: "practice", tuner: "practice", metro: "practice",
   chords: "practice", flash: "practice", rush: "practice", quiz: "practice", range: "practice", path: "path", lesson: "path", settings: "settings" };
 const ROOT_PAGES = ["library", "practice", "path"];
 
@@ -357,6 +380,7 @@ const Router = {
     $("#backBtn").hidden = ROOT_PAGES.includes(r.name);
     $("#logo").hidden = !ROOT_PAGES.includes(r.name);
     paintInstSwitch(ROOT_PAGES.includes(r.name));
+    Awake.check();
     TimerUI.paintPill();
   },
 };
@@ -382,6 +406,7 @@ const Sheet = {
     requestAnimationFrame(() => wrap.classList.add("open"));
     renderCtx(ctx);
     $("#sheetBody").scrollTop = 0;
+    Awake.check();
   },
   close() {
     cleanupCtx(this.ctx);
@@ -392,6 +417,7 @@ const Sheet = {
     setTimeout(() => { if (!this.ctx) { wrap.hidden = true; $("#sheetBody").innerHTML = ""; } }, 260);
     if (after) after();
     if (Router.ctx && Router.ctx.view.onSheetClose) Router.ctx.view.onSheetClose(Router.ctx);
+    Awake.check();
   },
 };
 const Modal = {
@@ -414,8 +440,23 @@ function paintInstSwitch(show) {
   const el = $("#instSwitch");
   if (!el) return;
   el.hidden = !show;
-  el.innerHTML = Object.entries(INSTRUMENTS).map(([k, v]) => `<button class="${INST() === k ? "on" : ""}" data-act="inst" data-k="${k}" aria-pressed="${INST() === k}">${v.label}</button>`).join("");
+  el.innerHTML = Object.entries(INSTRUMENTS).map(([k, v]) => `<button class="${INST() === k ? "on" : ""}" data-act="inst" data-k="${k}" aria-pressed="${INST() === k}" aria-label="${v.label}" title="${v.label}">${icon(v.icon, 17)}${INST() === k ? `<span>${v.label}</span>` : ""}</button>`).join("");
 }
+
+/* keep the screen awake on pages you play from (songs, lyrics, tools), never on menus */
+const AWAKE_VIEWS = new Set(["song", "tuner", "metro", "flash", "rush", "quiz", "range", "lesson", "takes"]);
+const Awake = {
+  lock: null,
+  want() { return AWAKE_VIEWS.has(Router.cur.name) || !!(Sheet.ctx && AWAKE_VIEWS.has(Sheet.ctx.name)); },
+  async check() {
+    const on = this.want() && document.visibilityState === "visible";
+    try {
+      if (on && !this.lock && navigator.wakeLock) { this.lock = await navigator.wakeLock.request("screen"); this.lock.addEventListener("release", () => { this.lock = null; }); }
+      else if (!on && this.lock) { const l = this.lock; this.lock = null; await l.release(); }
+    } catch (e) { this.lock = null; }
+  },
+};
+document.addEventListener("visibilitychange", () => Awake.check());
 
 /* ===================== ACTIONS ===================== */
 const ACT = {};
@@ -438,7 +479,7 @@ document.addEventListener("change", e => {
   if (el && ACT[el.dataset.change]) ACT[el.dataset.change](el, ctxOf(el), e);
 });
 ACT.go = el => Router.go(el.dataset.h);
-ACT.inst = el => { if (el.dataset.k === INST()) return; switchInstrument(el.dataset.k); AudioKit.strum(el.dataset.k === "piano" ? "C" : "G", { gain: 0.1 }); };
+ACT.inst = el => { if (el.dataset.k === INST()) return; switchInstrument(el.dataset.k); if (el.dataset.k !== "voice") AudioKit.strum(el.dataset.k === "piano" ? "C" : "G", { gain: 0.1 }); else AudioKit.sfx.tap(); };
 ACT.back = () => Router.back();
 ACT.closeSheet = () => Sheet.close();
 ACT.closeModal = () => Modal.close();

@@ -25,6 +25,9 @@ VIEWS.settings = {
         <div class="row2"><label class="field">GitHub user<input id="sOwner" value="${esc(s.sync.owner)}"></label><label class="field">Private repo<input id="sRepo" value="${esc(s.sync.repo)}"></label></div>
         <label class="field">Token<input id="sToken" type="password" value="${esc(tok)}" placeholder="github_pat_…" autocomplete="off"></label>
         <div class="row wrap"><button class="btn on" data-act="saveSync">${icon("refresh", 16)} Save & sync now</button><span class="muted small">${s.sync.lastSync ? "Last sync " + new Date(s.sync.lastSync).toLocaleString() : "Never synced"}</span></div></div>
+      ${spotSettingsHTML()}
+      <div class="card"><b>Takes</b><label class="check"><input type="checkbox" data-change="takesBackup" ${s.takesBackup !== false ? "checked" : ""}> Back up recorded takes to my private repo</label>
+        <p class="hint">Takes always stay on the device that recorded them. With backup on, your other devices can play them too.</p></div>
       <div class="card"><b>Offline</b><p class="hint" id="offInfo">Checking…</p></div>
       <p class="hint center">Music Space · built for campfires</p>`;
   },
@@ -50,6 +53,7 @@ ACT.ambientToggle = el => { App.state.ambient = el.checked; Ambient.set(el.check
 ACT.soundToggle = el => { App.state.sound.on = el.checked; AudioKit.setSound(el.checked, App.state.sound.vol); App.save(true); };
 ACT.soundVol = el => { App.state.sound.vol = +el.value; AudioKit.setSound(App.state.sound.on, +el.value); App.save(true); };
 ACT.soundTest = () => AudioKit.sfx.done();
+ACT.takesBackup = el => { App.state.takesBackup = el.checked; App.save(true); };
 ACT.saveSync = async (el, ctx) => {
   const s = App.state;
   s.sync.owner = $("#sOwner", ctx.root).value.trim(); s.sync.repo = $("#sRepo", ctx.root).value.trim();
@@ -60,8 +64,9 @@ ACT.saveSync = async (el, ctx) => {
 /* first tap anywhere unlocks audio on iPhone */
 document.addEventListener("pointerdown", () => { try { AudioKit.ctx(); } catch (e) {} }, { once: true });
 
-function boot() {
+async function boot() {
   App.load();
+  const fromSpotify = /[?&](code|error)=/.test(location.search);
   applyTheme();
   $("#backBtn").innerHTML = icon("back", 26);
   $("#gear").innerHTML = icon("gear", 22);
@@ -79,7 +84,8 @@ function boot() {
   App.setSyncStatus(GH.ready() ? "ok" : "off");
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
-  if (GH.ready()) Sync.run(true);
+  if (fromSpotify) Spot.finishLogin().then(() => Router.render());
+  if (GH.ready()) Sync.run(true).then(() => Spot.soon()); else Spot.soon();
   window.addEventListener("online", () => Sync.run(true));
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") Sync.run(true); });
 }

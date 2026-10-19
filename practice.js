@@ -16,14 +16,18 @@ VIEWS.practice = {
       ["rush", "mic", "Chord Rush", "The mic counts your clean changes.", "#ff8fa3"],
       ["quiz", "cards", "Name That Shape", "Quick quiz on the chords you pick.", "#c9a7ff"],
       ["range", "wave", "Range finder", "Measure anyone's singing range.", "#7fe9cd"],
-    ].filter(t => !(INST() === "piano" && t[0] === "tuner"));
+      ["takes", "rec", "Takes", "Every recording you've made, by song.", "#ff8f7a"],
+    ].filter(t => !(INST() === "piano" && t[0] === "tuner") && !(INST() === "voice" && ["chords", "flash", "rush", "quiz"].includes(t[0])))
+     .map(t => INST() === "voice" && t[0] === "tuner" ? ["tuner", "tuner", "Pitch", "Sing a note and see exactly where you are.", t[4]] : t);
     const work = markedChords("work");
     return `<div class="tiles">${tiles.map(([h, ic, t, d, c]) => `<button class="tile" data-act="go" data-h="#/${h}" style="--tc:${c}">
         <span class="tileIcon">${icon(ic, 30)}</span><b>${t}</b><span>${d}</span></button>`).join("")}</div>
       ${work.length ? `<div class="card"><div class="row"><b>Chords that need work</b></div>
         <div class="chordStrip">${work.map(c => `<button class="miniChord" data-act="chord" data-c="${esc(c)}">${markDot(c)}${chordSVG(c, 0.6)}<span>${esc(c)}</span></button>`).join("")}</div>
         <button class="btn on" data-act="go" data-h="#/flash?chords=${encodeURIComponent(work.join(","))}">${icon("bolt", 18)} Flash these</button></div>` : ""}
-      <div class="card"><b>Three-minute warmup</b><ol class="warm">${INST() === "piano"
+      <div class="card"><b>Three-minute warmup</b><ol class="warm">${INST() === "voice"
+        ? "<li>Lip trills up and down, easy and loose.</li><li>Pitch: sing five notes up and back, watch the needle.</li><li>One song from top to bottom, then listen to the take.</li>"
+        : INST() === "piano"
         ? "<li>Five-finger scale in C, both hands, slow.</li><li>Chord Flash on C, F, G, Am at 60 bpm.</li><li>One song you already know, start to finish.</li>"
         : INST() === "uke" ? "<li>Strum each open string and check it with the tuner.</li><li>Chord Flash on C, Am, F, G at 60 bpm.</li><li>One song you already know, start to finish.</li>"
         : "<li>Spider walk: frets 1-2-3-4 on every string, slow.</li><li>Chord Flash on the Starter four at 60 bpm.</li><li>One song you already know, start to finish.</li>"}</ol></div>`;
@@ -33,19 +37,19 @@ VIEWS.practice = {
 /* ---------------- TUNER ---------------- */
 const GUITAR_STR = [["E", 40, "6th"], ["A", 45, "5th"], ["D", 50, "4th"], ["G", 55, "3rd"], ["B", 59, "2nd"], ["E", 64, "1st"]];
 const UKE_STR = [["G", 67, "4th"], ["C", 60, "3rd"], ["E", 64, "2nd"], ["A", 69, "1st"]];
-const tunerStrings = () => INST() === "uke" ? UKE_STR : GUITAR_STR;
+const tunerStrings = () => INST() === "uke" ? UKE_STR : INST() === "voice" ? [] : GUITAR_STR;
 VIEWS.tuner = {
-  title: () => "Tuner",
+  title: () => INST() === "voice" ? "Pitch" : "Tuner",
   html(ctx) {
     const d = ctx.data; d.done = d.done || new Set();
     return `<div class="tool center">
       <button class="cornerBtn" data-act="tunerPause" aria-label="${d.paused ? "Resume" : "Pause"}">${icon(d.paused ? "play" : "pause", 20)}</button>
       <div class="tNote" id="tNote">${d.err ? "" : "—"}</div>
       <div class="tCents" aria-hidden="true"><div class="tScale"><span></span><span></span><span class="mid"></span><span></span><span></span></div><div class="tNeedle" id="tNeedle"></div></div>
-      <div class="muted" id="tInfo">${d.err ? esc(d.err) : d.paused ? "Paused" : "Play one string at a time"}</div>
+      <div class="muted" id="tInfo">${d.err ? esc(d.err) : d.paused ? "Paused" : INST() === "voice" ? "Sing a steady note" : "Play one string at a time"}</div>
       ${d.err ? `<button class="btn on" data-act="tunerRetry">${icon("mic", 18)} Allow the mic</button>` : ""}
       <div class="strings">${tunerStrings().map(([n, m, s], i) => `<button class="stringBox ${d.done.has(i) ? "ok" : ""}" data-act="refTone" data-m="${m}" data-i="${i}" aria-label="${s} string ${n}, tap to hear it"><b>${n}</b><small>${s}</small></button>`).join("")}</div>
-      <p class="hint">Boxes turn green as each string lands in tune. Tap a box to hear its note.</p>
+      ${INST() === "voice" ? `<p class="hint">Hold a note and watch the needle. Center means right on pitch. Fry or breathy notes won't read well.</p>` : `<p class="hint">Boxes turn green as each string lands in tune. Tap a box to hear its note.</p>`}
       ${d.done.size ? `<button class="btn ghost" data-act="tunerReset">${icon("refresh", 16)} Start over</button>` : ""}
     </div>`;
   },
@@ -68,7 +72,7 @@ function startTuner(ctx) {
     nd.style.left = (50 + Math.max(-50, Math.min(50, cents))) + "%";
     nd.classList.toggle("ok", ok);
     const STR = tunerStrings(), si = STR.findIndex(g => g[1] === near);
-    inf.textContent = `${cents > 0 ? "+" : ""}${cents}¢ · ${si >= 0 ? STR[si][2] + " string" : "between strings"}`;
+    inf.textContent = `${cents > 0 ? "+" : ""}${cents}¢` + (INST() === "voice" ? (Math.abs(cents) <= 10 ? " · on pitch" : cents > 0 ? " · a little sharp" : " · a little flat") : ` · ${si >= 0 ? STR[si][2] + " string" : "between strings"}`);
     if (ok && si >= 0) { streak = streakString === si ? streak + 1 : 1; streakString = si; } else streak = 0;
     if (streak >= 4 && !d.done.has(si)) {
       d.done.add(si); AudioKit.sfx.good();

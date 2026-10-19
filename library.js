@@ -36,10 +36,9 @@ VIEWS.library = {
   html(ctx) {
     const s = App.state, d = ctx.data;
     d.filters = d.filters || new Set(); d.list = d.list || "all"; d.q = d.q ?? ""; d.level = d.level || "";
-    const due = reviewDue().map(x => x.id);
     let songs = allSongs().filter(x => x.status !== "review");
-    if (d.list === "due") songs = songs.filter(x => due.includes(x.id));
-    else if (d.list !== "all") { const L = s.lists.find(l => l.id === d.list); songs = L ? songs.filter(x => L.songs.includes(x.id)) : songs; }
+    if (d.list === "due") d.list = "all";
+    if (d.list !== "all") { const L = s.lists.find(l => l.id === d.list); songs = L ? songs.filter(x => L.songs.includes(x.id)) : songs; }
     const q = norm(d.q);
     if (q) songs = songs.filter(x => norm(x.title + " " + (x.artist || "")).includes(q));
     const known = knownChords();
@@ -57,7 +56,9 @@ VIEWS.library = {
     if (d.level) songs = songs.filter(x => { const l = songLevel(x); return d.level === "easy" ? l <= 2 : d.level === "mid" ? l === 3 : l >= 4; });
     songs.sort((a, b) => a.title.localeCompare(b.title));
     const inbox = Object.values(s.userSongs).filter(x => !x.deleted && songHere(x) && (x.status === "review" || x.polish));
-    const listTabs = [["all", "All songs"], ["due", `Review due${due.length ? " · " + due.length : ""}`], ...s.lists.map(l => [l.id, l.name])];
+    const listTabs = [["all", "All songs"], ...s.lists.map(l => [l.id, l.name])];
+    const FILTER_LABELS = Object.fromEntries([...TAGS, ["mastered", "Mastered"], ["learning", "Learning"], ["known", "Chords I know"], ["ri", "Fits Ri"]]);
+    const nActive = d.filters.size + (d.level ? 1 : 0);
     const chip = (k, l) => `<button class="chip ${tagColor(k) ? "tint" : ""} ${d.filters.has(k) ? "on" : ""}" ${tagColor(k) ? `style="--accent:${tagColor(k)}"` : ""} data-act="libFilter" data-k="${k}">${l}</button>`;
     return `
       <div class="libTop">
@@ -69,8 +70,18 @@ VIEWS.library = {
           <span class="srMain"><b>${esc(x.title)}</b><small>${x.status === "review" ? "Waiting for your review" : "Flagged for Claude to polish"}</small></span></button>`).join("")}</div></details>` : ""}
       <div class="tabRow" role="tablist">${listTabs.map(([k, l]) => `<button class="pillTab ${d.list === k ? "on" : ""}" data-act="libList" data-k="${k}">${esc(l)}</button>`).join("")}
         <button class="pillTab ghost" data-act="newList">${icon("plus", 14)} New list</button></div>
-      <div class="chips">${TAGS.map(([k, l]) => chip(k, l)).join("")}${chip("mastered", "Mastered")}${chip("learning", "Learning")}${chip("known", "Chords I know")}${chip("ri", "Fits Ri")}
-        <select class="chip sel" data-change="libLevel" aria-label="Difficulty"><option value="">Any level</option><option value="easy" ${d.level === "easy" ? "selected" : ""}>Easy</option><option value="mid" ${d.level === "mid" ? "selected" : ""}>Medium</option><option value="hard" ${d.level === "hard" ? "selected" : ""}>Hard</option></select></div>
+      <div class="chips filterRow">
+        <button class="chip ${d.showFilters || nActive ? "on" : ""}" data-act="libFilters" aria-expanded="${!!d.showFilters}">${icon("filter", 16)} Filter${nActive ? " · " + nActive : ""}</button>
+        ${d.showFilters ? "" : [...d.filters].map(k => `<button class="chip on ${tagColor(k) ? "tint" : ""}" ${tagColor(k) ? `style="--accent:${tagColor(k)}"` : ""} data-act="libFilter" data-k="${k}">${esc(FILTER_LABELS[k] || k)} ${icon("close", 13)}</button>`).join("")}
+        ${!d.showFilters && d.level ? `<button class="chip on" data-act="libLevelClear">${{ easy: "Easy", mid: "Medium", hard: "Hard" }[d.level]} ${icon("close", 13)}</button>` : ""}
+        ${!d.showFilters && nActive > 1 ? `<button class="chip ghost" data-act="libClear">Clear</button>` : ""}
+      </div>
+      ${d.showFilters ? `<div class="filterPanel">
+        <div class="fpLabel">Style</div><div class="chips">${TAGS.map(([k, l]) => chip(k, l)).join("")}</div>
+        <div class="fpLabel">Progress</div><div class="chips">${chip("mastered", "Mastered")}${chip("learning", "Learning")}${INST() !== "voice" ? chip("known", "Chords I know") : ""}${chip("ri", "Fits Ri")}</div>
+        <div class="fpLabel">Difficulty</div><div class="chips">${[["", "Any"], ["easy", "Easy"], ["mid", "Medium"], ["hard", "Hard"]].map(([v, l]) => `<button class="chip ${d.level === v ? "on" : ""}" data-act="libLevelSet" data-v="${v}">${l}</button>`).join("")}</div>
+        <div class="row"><button class="btn on" data-act="libFilters">${icon("check", 16)} Done</button>${nActive ? `<button class="btn ghost" data-act="libClear">Clear all</button>` : ""}</div>
+      </div>` : ""}
       <div class="libCount muted">${songs.length} song${songs.length === 1 ? "" : "s"}</div>
       <div class="songList">${songs.map(songRow).join("") || `<div class="empty">No songs match. Try fewer filters.</div>`}</div>
       <p class="hint center">${INST() === "guitar" ? "Built-in songs are public domain. Yours live in your private repo." : `Your ${INSTRUMENTS[INST()].word} library. Copy any guitar song over from its ⋯ menu, or add sheets here.`}</p>`;
@@ -81,13 +92,13 @@ VIEWS.library = {
   },
 };
 function songRow(x) {
-  const p = bestPct(x.id), di = dueInfo(x.id);
+  const p = bestPct(x.id);
   const tags = [...songTags(x)].sort((a, b) => TAG_PRIORITY.indexOf(a) - TAG_PRIORITY.indexOf(b)).slice(0, 3);
   return `<div class="songRow" style="--accent:${songColor(x)}">
     <button class="srHit" data-act="go" data-h="#/song/${encodeURIComponent(x.id)}" aria-label="Open ${esc(x.title)}"></button>
     ${cupHTML(p, 34)}
     <span class="srMain"><b>${esc(x.title)}</b><small>${esc(x.artist || "")}</small>
-      <span class="srChips">${x.key ? `<span class="tag">${esc(x.key)}</span>` : ""}${tags.map(t => `<span class="tag tint" style="--accent:${tagColor(t) || "var(--dim)"}">${esc(t)}</span>`).join("")}${di && di.due ? `<span class="tag due">review</span>` : ""}${!x.body && x.type !== "pdf" ? `<span class="tag warn">needs sheet</span>` : ""}</span></span>
+      <span class="srChips">${x.key ? `<span class="tag">${esc(x.key)}</span>` : ""}${tags.map(t => `<span class="tag tint" style="--accent:${tagColor(t) || "var(--dim)"}">${esc(t)}</span>`).join("")}${!x.body && x.type !== "pdf" ? `<span class="tag warn">needs sheet</span>` : ""}</span></span>
     <button class="iconBtn small" data-act="songMenu" data-id="${esc(x.id)}" aria-label="More for ${esc(x.title)}">${icon("more", 20)}</button>
   </div>`;
 }
@@ -95,6 +106,10 @@ ACT.libSearch = (el, ctx) => { ctx.data.q = el.value; ctx.data.focus = true; ren
 ACT.libFilter = (el, ctx) => { const f = ctx.data.filters; f.has(el.dataset.k) ? f.delete(el.dataset.k) : f.add(el.dataset.k); AudioKit.sfx.tap(); renderCtx(ctx); };
 ACT.libList = (el, ctx) => { ctx.data.list = el.dataset.k; renderCtx(ctx); };
 ACT.libLevel = (el, ctx) => { ctx.data.level = el.value; renderCtx(ctx); };
+ACT.libFilters = (el, ctx) => { ctx.data.showFilters = !ctx.data.showFilters; AudioKit.sfx.tap(); renderCtx(ctx); };
+ACT.libLevelSet = (el, ctx) => { ctx.data.level = el.dataset.v; renderCtx(ctx); };
+ACT.libLevelClear = (el, ctx) => { ctx.data.level = ""; renderCtx(ctx); };
+ACT.libClear = (el, ctx) => { ctx.data.filters = new Set(); ctx.data.level = ""; renderCtx(ctx); };
 ACT.newList = () => Modal.open(`<h3>New list</h3><label class="field">Name<input id="newListName" placeholder="Crowd pleasers" maxlength="40"></label>
   <div class="row"><button class="btn on" data-act="createList">Create</button><button class="btn ghost" data-act="closeModal">Cancel</button></div>`);
 ACT.createList = () => {
@@ -109,7 +124,7 @@ ACT.songMenu = el => {
     <div class="menuList">
       ${lists.length ? lists.map(l => `<label class="check"><input type="checkbox" data-change="toggleInList" data-l="${l.id}" data-id="${esc(s.id)}" ${l.songs.includes(s.id) ? "checked" : ""}> ${esc(l.name)}</label>`).join("") : `<p class="hint">No lists yet.</p>`}
       <button class="btn ghost" data-act="newList">${icon("plus", 16)} New list</button>
-      ${s.type ? Object.keys(INSTRUMENTS).filter(k => k !== songInst(s)).map(k => `<button class="btn ghost" data-act="copyTo" data-id="${esc(s.id)}" data-k="${k}">${icon("plus", 16)} Copy to ${INSTRUMENTS[k].label}</button>`).join("") : ""}
+      ${s.type ? Object.keys(INSTRUMENTS).filter(k => k !== songInst(s) && k !== "voice").map(k => `<button class="btn ghost" data-act="copyTo" data-id="${esc(s.id)}" data-k="${k}">${icon("plus", 16)} Copy to ${INSTRUMENTS[k].label}</button>`).join("") : ""}
       ${s.type ? `<button class="btn ghost" data-act="togglePolish" data-id="${esc(s.id)}">${icon("sparkle", 16)} ${s.polish ? "Unflag for Claude" : "Ask Claude to polish"}</button>
         <button class="btn ghost" data-act="go" data-h="#/import?edit=${encodeURIComponent(s.id)}">${icon("sliders", 16)} Edit details</button>
         <button class="btn ghost danger" data-act="delSong" data-id="${esc(s.id)}">${icon("trash", 16)} Delete</button>` : ""}
@@ -144,7 +159,7 @@ ACT.delSong = el => Modal.open(`<h3>Delete this song?</h3><p>It disappears from 
 ACT.delSongYes = el => {
   const id = el.dataset.id;
   App.state.userSongs[id] = { id, deleted: true, updatedAt: Date.now() };
-  App.save(); Modal.close(); Router.go("#/library");
+  App.save(); Modal.close(); Router.go("#/library"); Spot.soon();
 };
 
 /* ---------------- SONG VIEW ---------------- */
@@ -198,8 +213,9 @@ VIEWS.song = {
         ${song.tuning && INST() === "guitar" && !/standard|^e\s*a\s*d\s*g\s*b\s*e$/i.test(song.tuning.trim()) ? `<p class="sheetNote">Tuning: ${esc(song.tuning)}. The chords here are what you'd play in standard tuning, just slightly off from the recording.</p>` : ""}
         ${fits ? `<div class="fits">${fits}</div>` : ""}
       </div>
-      <div class="songBar" role="toolbar">
-        ${[["transpose","transpose","Transpose","var(--accent)"],["singers","singers","Singers","var(--k-alt)"],["saved","bookmark","Saved","var(--k-gold)"],["play","sliders","Play","var(--k-violet)"]].map(([k, ic, l, c]) =>
+      ${spotBarHTML(song)}
+      <div class="songBar five" role="toolbar">
+        ${[["transpose","transpose","Transpose","var(--accent)"],["singers","singers","Singers","var(--k-alt)"],["saved","bookmark","Saved","var(--k-gold)"],["takes","rec","Takes","var(--k-sky)"],["play","sliders","Play","var(--k-violet)"]].map(([k, ic, l, c]) =>
           `<button class="barBtn ${panel === k ? "on" : ""} ${k === "singers" && singers.length ? "lit" : ""}" ${c !== "var(--accent)" ? `style="--accent:${c}"` : ""} data-act="songPanel" data-k="${k}">${icon(ic, 20)}<span>${l}</span></button>`).join("")}
       </div>
       ${panel ? `<div class="panel">${songPanelHTML(panel, song, p, ctx)}</div>` : ""}
@@ -227,6 +243,8 @@ VIEWS.song = {
     if (sp) sp.addEventListener("input", () => Scroller.speed = +sp.value);
     const song = getSong(ctx.arg);
     if (song && (song.type === "pdf" || ctx.data.showPdf)) mountPdf(song, ctx);
+    if (song && !ctx.data.showPdf && song.type !== "pdf") SpotUI.mount(song, ctx);
+    ctx.cleanups.push(() => { if (TakePlayer.audio) TakePlayer.audio.pause(); });
   },
 };
 function songPanelHTML(k, song, p, ctx) {
@@ -246,6 +264,7 @@ function songPanelHTML(k, song, p, ctx) {
       <p class="hint">${song.melody ? "Turn on one or more singers and the key moves to fit. Easiest shapes then only picks capo options inside that range." : "This song has no melody range yet. Add one in Edit details, or flag it for Claude to polish."}</p>
       <button class="btn ghost" data-act="tool" data-tool="range">${icon("wave", 16)} Range finder</button>`;
   }
+  if (k === "takes") return takesPanelHTML(song);
   if (k === "saved") {
     const saved = p.saved || [];
     return `${saved.length ? `<div class="menuList">${saved.map((v, i) => `<div class="savedRow"><button class="btn ghost grow" data-act="applySaved" data-i="${i}">${icon("bookmark", 16)} ${esc(v.name)} <small class="muted">${v.capo ? "capo " + v.capo : ""} ${v.shift ? (v.shift > 0 ? "+" : "") + v.shift : ""}</small></button><button class="iconBtn small" data-act="delSaved" data-i="${i}" aria-label="Delete">${icon("trash", 16)}</button></div>`).join("")}</div>` : `<p class="hint">No saved versions yet.</p>`}
@@ -253,7 +272,7 @@ function songPanelHTML(k, song, p, ctx) {
   }
   return `<div class="stepRow"><span>Scroll speed</span><input id="scrollSpeed" type="range" min="4" max="70" value="${Scroller.speed}" aria-label="Scroll speed"></div>
     <div class="stepRow"><span>Text</span><button class="stepBtn" data-act="font" data-d="-1" aria-label="Smaller text">A−</button><b>${App.state.font}</b><button class="stepBtn" data-act="font" data-d="1" aria-label="Bigger text">A+</button></div>
-    <button class="btn full" data-act="spotify">${icon("headphones", 18)} Play the original</button>`;
+    ${Spot.connected() ? `<p class="hint">Use the Spotify bar above to play and pause the original.</p>` : `<button class="btn full" data-act="spotify">${icon("headphones", 18)} Open the original in Spotify</button><p class="hint">Connect Spotify in Settings to play and pause right here.</p>`}`;
 }
 ACT.songPanel = (el, ctx) => { ctx.data.panel = ctx.data.panel === el.dataset.k ? "" : el.dataset.k; ctx.data.opts = null; AudioKit.sfx.tap(); renderCtx(ctx); };
 ACT.shift = (el, ctx) => { const p = prefs(ctx.arg); setPrefs(ctx.arg, { shift: Math.max(-11, Math.min(11, p.shift + +el.dataset.d)) }); ctx.data.opts = null; renderCtx(ctx); };
@@ -381,10 +400,11 @@ VIEWS.rate = {
       <input type="range" min="0" max="100" step="5" value="${v[k]}" data-input="rateSlide" data-k="${k}" aria-label="${label}"><div class="hint">${help}</div></div>`;
     const days = attemptDays(s.id);
     return `<p class="lead">Play ${esc(s.title)} start to finish twice, then be honest.</p>
-      ${slider("changes", "Chord changes", "Clean and on time? 100 means no stalls or buzzes.")}
+      ${INST() === "voice" ? slider("changes", "Pitch", "On the notes? 100 means nothing drifted flat or sharp.") + slider("rhythm", "Entrances and timing", "Came in on time after every gap and solo.")
+      : `${slider("changes", "Chord changes", "Clean and on time? 100 means no stalls or buzzes.")}
       ${slider("rhythm", INST() === "piano" ? "Rhythm" : "Rhythm and strum", "Steady pattern, no stopping when you miss.")}
       <label class="check"><input type="checkbox" data-change="rateSang" ${v.sang ? "checked" : ""}> I sang along</label>
-      ${v.sang ? slider("sing", "Singing while playing", "Tracked separately so it never holds your guitar progress back.") : ""}
+      ${v.sang ? slider("sing", "Singing while playing", "Tracked separately so it never holds your guitar progress back.") : ""}`}
       <div class="scoreBig" style="--accent:${sc}">${cupHTML(score, 64)}<div><b>${score}% ${INSTRUMENTS[INST()].word} score</b><div class="hint">${score >= 80 ? "That clears the 80% bar." : "80% clears a lesson. Days tried so far: " + days + "."}</div></div></div>
       <button class="btn on full" data-act="saveRating">${icon("check", 18)} Save rating</button>`;
   },
@@ -400,7 +420,7 @@ ACT.rateSang = (el, ctx) => { ctx.data.v.sang = el.checked; renderCtx(ctx); };
 ACT.saveRating = (el, ctx) => {
   const v = ctx.data.v, score = Math.round((v.changes + v.rhythm) / 2), id = ctx.arg;
   const firstMaster = bestPct(id) < 80 && score >= 80;
-  recordSession(id, score, v.sang ? v.sing : null);
+  recordSession(id, score, v.sang && INST() !== "voice" ? v.sing : null);
   addXP(5 + Math.round(score / 20));
   if (firstMaster) { AudioKit.sfx.done(); App.toast("Mastered! It joins your review rotation."); } else { AudioKit.sfx.good(); App.toast(`Saved: ${score}%`); }
   Sheet.close();
@@ -444,7 +464,7 @@ VIEWS.import = {
 function importInputHTML(ctx) {
   const d = ctx.data;
   return `<p class="lead">${d.draft && d.draft.title ? `Adding <b>${esc(d.draft.title)}</b>${d.draft.artist ? " by " + esc(d.draft.artist) : ""}. Drop in its chord sheet` : "Drop in a chord sheet"}. The app reads it, fills everything in, and you approve it.</p>
-    <label class="dropZone" id="drop">${icon("upload", 34)}<b>Upload PDFs</b><span class="hint">Pick one to review it, or select a whole batch. Clean ones go straight into your ${INSTRUMENTS[INST()].word} library and anything odd waits in the inbox.</span><input id="pdfIn" type="file" accept="application/pdf" multiple hidden></label>
+    <label class="dropZone" id="drop">${icon("upload", 34)}<b>Upload PDFs</b><span class="hint">Pick one to review it, or select a whole batch. Clean ones go straight into your ${INST() === "voice" ? "guitar" : INSTRUMENTS[INST()].word} library and anything odd waits in the inbox.</span><input id="pdfIn" type="file" accept="application/pdf" multiple hidden></label>
     <div class="orLine"><span>or paste the text</span></div>
     <div class="card">
       <div class="row"><button class="btn" data-act="pasteClip">${icon("clipboard", 18)} Paste</button><span class="hint">Copy everything on the chord page, then paste.</span></div>
@@ -466,7 +486,7 @@ async function handleFiles(files, ctx) {
       const draft = draftFromText(text, { title: "" });
       row.title = draft.title || row.name;
       if (!draft.title) draft.title = row.name.replace(/[-_]+/g, " ").replace(/\s*(chords?|tabs?)\s*(by.*)?$/i, "").trim();
-      const dupe = Object.values(App.state.userSongs).find(x => !x.deleted && songInst(x) === INST() && norm(x.title) === norm(draft.title));
+      const dupe = Object.values(App.state.userSongs).find(x => !x.deleted && songInst(x) === (INST() === "voice" ? "guitar" : INST()) && norm(x.title) === norm(draft.title));
       if (dupe) { row.st = "skip"; row.why = "Already in your library"; row.id = dupe.id; rr(); continue; }
       const issues = draftIssues(draft);
       draft.polish = false;
@@ -602,7 +622,7 @@ async function saveDraft(ctx, status) {
 }
 /* sheets with a capo list chord SHAPES; we store the real (sounding) chords and put the capo back on in the song's settings */
 async function saveSong(d, status, pdfBlob) {
-  const inst = d.inst || INST();
+  const inst = d.inst || (INST() === "voice" ? "guitar" : INST());
   const id = d.id || norm(d.title).replace(/ /g, "-").slice(0, 40) + "-" + Date.now().toString(36).slice(-4);
   const m = String(d.spotify || "").match(/open\.spotify\.com\/track\/([A-Za-z0-9]+)/);
   const capo = d.capo || 0;
@@ -618,6 +638,7 @@ async function saveSong(d, status, pdfBlob) {
   const usePc = inst === "piano" ? 0 : capo;
   if (!pr || pr.sheetCapo !== usePc) App.state.songPrefs[pk] = { ...(pr || { view: "strum", singers: [] }), shift: 0, capo: usePc, sheetCapo: usePc, at: Date.now() };
   App.save();
+  if (window.Spot) Spot.soon();
   return id;
 }
 ACT.approveSong = async (el, ctx) => { const id = await saveDraft(ctx, null); if (!id) return; AudioKit.sfx.good(); App.toast("Added to your library"); Router.go("#/song/" + encodeURIComponent(id)); };

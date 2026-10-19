@@ -286,7 +286,7 @@ function allChords() {
    chordShape() answers for whichever instrument is active.
    ========================================================= */
 let INSTR = "guitar";
-function setInstrument(i) { INSTR = ["uke", "piano"].includes(i) ? i : "guitar"; ukeCache.clear(); }
+function setInstrument(i) { INSTR = ["uke", "piano", "voice"].includes(i) ? i : "guitar"; ukeCache.clear(); }
 const UKE_TUNING = [67, 60, 64, 69]; // G C E A, low-to-high as drawn left-to-right
 const UKE_STD = {
   "C":[0,0,0,3],"Cm":[0,3,3,3],"C7":[0,0,0,1],"Cmaj7":[0,0,0,2],"Cm7":[3,3,3,3],"Csus4":[0,0,1,3],"Csus2":[0,2,3,3],"C6":[0,0,0,0],

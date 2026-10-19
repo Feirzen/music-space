@@ -130,6 +130,11 @@ function mergeProgress(a = {}, b = {}) {
     const sessions = [...cur.sessions, ...(add.sessions || []).filter(x => !seen.has(x.d + "|" + x.score))].sort((x, y) => x.d < y.d ? -1 : 1).slice(-40);
     out.mastery[k] = { best: Math.max(cur.best || 0, add.best || 0), sessions };
   }
+  for (const k of ["vocals", "takes"]) {
+    out[k] = {};
+    for (const src of [b[k] || {}, a[k] || {}]) for (const id in src) out[k][id] = newest(src[id], out[k][id]);
+  }
+  out.spotify = newest(a.spotify, b.spotify) || { clientId: "", playlistId: "", at: 0 };
   out.people = mergeById(a.people, b.people);
   out.lists = mergeById(a.lists, b.lists);
   return out;
@@ -176,6 +181,22 @@ const Sync = {
       }
 
       App.applySynced(songs, progress);
+      // vocal sheet music: small, so every device keeps a copy
+      for (const k in App.state.vocals) {
+        const v = App.state.vocals[k];
+        if (!v || !v.file) continue;
+        if (!v.uploaded) {
+          const blob = await IDB.get(v.file);
+          if (blob) { await GH.put(v.file, await b64FromBlob(blob), await GH.sha(v.file), "Add sheet music"); v.uploaded = true; v.at = Date.now(); }
+        } else if (!(await IDB.get(v.file))) { try { await IDB.put(v.file, await GH.getBlob(v.file)); } catch (e) {} }
+      }
+      // recorded takes back up to the repo; other devices download one when you press play
+      if (App.state.takesBackup !== false) for (const id in App.state.takes) {
+        const t = App.state.takes[id];
+        if (!t || t.deleted || t.uploaded || !t.file) continue;
+        const blob = await IDB.get(t.file);
+        if (blob) { await GH.put(t.file, await b64FromBlob(blob), await GH.sha(t.file), "Add take"); t.uploaded = true; t.at = Date.now(); }
+      }
       const next = { songs, progress: App.progressSnapshot(), updatedAt: Date.now() };
       const changed = JSON.stringify({ s: next.songs, p: next.progress }) !== JSON.stringify({ s: remote.songs, p: remote.progress });
       if (changed) await GH.put("library.json", b64FromText(JSON.stringify(next, null, 1)), sha, "Sync from " + (navigator.platform || "device"));
