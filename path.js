@@ -24,20 +24,31 @@ function stepKey(lessonId, i) { return lessonId + ":" + i; }
 VIEWS.path = {
   title: () => "Path",
   html() {
+    if (INST() !== "guitar") return comingSoonHTML();
     const s = App.state, cur = currentLesson(), due = reviewDue();
-    const work = Object.keys(s.chordMarks).filter(c => s.chordMarks[c].m === "work");
+    const work = markedChords("work");
     const doneN = Object.keys(s.lessonsDone).filter(id => allLessons().some(l => l.id === id)).length;
     return `
       <div class="stats"><span>${icon("sparkle", 16)} ${s.streak.count} day streak</span><span>${icon("star", 16)} ${s.xp.toLocaleString()} XP</span><span>${icon("mountains", 16)} ${doneN}/${allLessons().length} lessons</span></div>
       ${due.length || work.length ? `<button class="reviewCard" data-act="tool" data-tool="review">${icon("review", 26)}<div><b>Review · about 5 min</b><span>${due.length ? due.length + " song" + (due.length > 1 ? "s" : "") + " due" : ""}${due.length && work.length ? " · " : ""}${work.length ? work.length + " chord" + (work.length > 1 ? "s" : "") + " to drill" : ""}</span></div></button>` : ""}
-      ${PATH.map(ch => chapterHTML(ch, cur)).join("")}`;
+      ${PATH.map((ch, i) => chapterHTML(ch, cur, i)).join("")}`;
   },
   mount(ctx) {
     const curEl = $(".node.current", ctx.root);
     if (curEl && !ctx.data.scrolled) { ctx.data.scrolled = true; setTimeout(() => curEl.scrollIntoView({ block: "center", behavior: "smooth" }), 250); }
   },
 };
-function chapterHTML(ch, cur) {
+const CHAPTER_COLORS = ["", "var(--k-ember)", "var(--k-pink)", "var(--k-violet)", "var(--k-sky)", "var(--k-gold)"];
+function comingSoonHTML() {
+  const w = INSTRUMENTS[INST()];
+  return `<div class="soon">${icon(INST() === "piano" ? "keys" : "guitar", 40)}
+    <h2>${w.label} Path · coming soon!</h2>
+    <p>Lessons for ${w.word} are on the way. Your ${w.word} library, ${INST() === "uke" ? "tuner, " : ""}metronome and chord games already work in ${w.word} mode.</p>
+    <div class="row wrap center"><button class="btn on" data-act="go" data-h="#/library">${icon("notes", 18)} ${w.label} library</button>
+    <button class="btn" data-act="go" data-h="#/practice">${icon("bolt", 18)} Practice</button></div></div>
+    <p class="hint center">Your guitar Path is still there. Switch to Guitar up top.</p>`;
+}
+function chapterHTML(ch, cur, idx = 0) {
   const s = App.state, lessons = ch.lessons;
   const done = lessons.filter(l => s.lessonsDone[l.id]).length, open = chapterOpen(ch);
   const xs = [22, 50, 76, 50];
@@ -47,7 +58,8 @@ function chapterHTML(ch, cur) {
   const roster = (ch.roster || []).map(t => { const sg = findByTitle(t); return { t, sg, pct: sg ? bestPct(sg.id) : 0 }; });
   const builtins = (ch.builtins || []).map(id => getSong(id)).filter(Boolean);
   const allDone = done === lessons.length;
-  return `<section class="chapter ${open ? "" : "locked"}">
+  const cc = CHAPTER_COLORS[idx % CHAPTER_COLORS.length];
+  return `<section class="chapter ${open ? "" : "locked"}" ${cc ? `style="--accent:${cc}"` : ""}>
     <div class="chHead">
       <span class="chIcon">${icon(ch.icon, 26)}</span>
       <div class="grow"><div class="eyebrow">Chapter ${ch.id.slice(2)}</div><h2>${esc(ch.title)}</h2><p>${esc(ch.blurb)}</p>
@@ -178,7 +190,7 @@ function completeLesson(l, ms, focus) {
 VIEWS.review = {
   title: () => "Review",
   html() {
-    const due = reviewDue(), work = Object.keys(App.state.chordMarks).filter(c => App.state.chordMarks[c].m === "work");
+    const due = reviewDue(), work = markedChords("work");
     return `<p class="lead">Mixed practice keeps old skills from fading. Do what's here, it's short.</p>
       ${work.length ? `<div class="card"><b>Chords to drill</b><div class="chordStrip">${work.map(c => `<button class="miniChord" data-act="chord" data-c="${esc(c)}">${chordSVG(c, 0.6)}<span>${esc(c)}</span></button>`).join("")}</div>
         <button class="btn on" data-act="tool" data-tool="flash" data-q="chords=${encodeURIComponent(work.concat(["G", "C"]).slice(0, 6).join(","))}">${icon("bolt", 18)} Flash them</button></div>` : ""}
@@ -187,3 +199,12 @@ VIEWS.review = {
   },
   onSheetClose(ctx) { renderCtx(ctx); },
 };
+
+/* lessons are guitar lessons for now */
+{
+  const base = VIEWS.lesson.html;
+  VIEWS.lesson.html = ctx => INST() === "guitar" ? base(ctx)
+    : `<div class="soon"><h2>This is a guitar lesson</h2><p>Switch back to guitar to keep going.</p><button class="btn on" data-act="inst" data-k="guitar">${icon("guitar", 18)} Switch to guitar</button></div>`;
+  const mount = VIEWS.lesson.mount;
+  if (mount) VIEWS.lesson.mount = ctx => { if (INST() === "guitar") mount(ctx); };
+}

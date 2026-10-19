@@ -56,11 +56,39 @@ function pluck(freq, { when = 0, gain = 0.22, dur = 2.4, damp = 0.4985, tone = 3
   } catch (e) {}
 }
 const GTR_OPEN = [40, 45, 50, 55, 59, 64];
+/* soft electric-piano-ish tone: a few sine partials with a gentle decay */
+function pianoNote(freq, { when = 0, gain = 0.16, dur = 2.2 } = {}) {
+  if (!Sound.on) return;
+  try {
+    const ac = ctx(), t0 = ac.currentTime + when, d = Math.max(0.8, dur * (freq > 600 ? 0.7 : 1));
+    const out = ac.createGain(), lp = ac.createBiquadFilter();
+    lp.type = "lowpass"; lp.frequency.value = 2600;
+    out.gain.setValueAtTime(0.0001, t0);
+    out.gain.exponentialRampToValueAtTime(gain, t0 + 0.008);
+    out.gain.exponentialRampToValueAtTime(gain * 0.35, t0 + 0.35);
+    out.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+    [[1, 1], [2, 0.32], [3, 0.1], [4, 0.04]].forEach(([h, a]) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = "sine"; o.frequency.value = freq * h; g.gain.value = a;
+      o.connect(g).connect(out); o.start(t0); o.stop(t0 + d + 0.05);
+    });
+    out.connect(lp).connect(master);
+  } catch (e) {}
+}
 function strum(chord, { up = false, spread = 0.035, gain = 0.16, when = 0 } = {}) {
   const sh = Theory.chordShape(chord);
   if (!sh) return;
-  const notes = sh.frets.map((f, i) => (f < 0 ? null : GTR_OPEN[i] + f)).filter(x => x != null);
-  (up ? notes.reverse() : notes).forEach((m, i) => pluck(mtof(m), { when: when + i * spread, gain }));
+  if (sh.piano) {
+    if (sh.bass != null) pianoNote(mtof(sh.bass), { when, gain: gain * 0.9 });
+    sh.notes.forEach((m, i) => pianoNote(mtof(m), { when: when + 0.012 * i + (sh.bass != null ? 0.02 : 0), gain: gain * 0.85 }));
+    return;
+  }
+  const uke = Theory.instrument === "uke";
+  const tun = uke ? Theory.UKE_TUNING : GTR_OPEN;
+  const notes = sh.frets.map((f, i) => (f < 0 ? null : tun[i] + f)).filter(x => x != null);
+  (up ? notes.reverse() : notes).forEach((m, i) => pluck(mtof(m), uke
+    ? { when: when + i * spread * 0.8, gain: gain * 1.05, dur: 1.5, damp: 0.4975, tone: 4200 }
+    : { when: when + i * spread, gain }));
 }
 function noiseBurst({ when = 0, dur = 0.05, type = "bandpass", freq = 1800, q = 4, gain = 0.4 } = {}) {
   if (!Sound.on) return;
@@ -82,7 +110,7 @@ const sfx = {
   start() { strum("Em", { gain: 0.1, spread: 0.06 }); },
   done() { strum("G", { gain: 0.12, spread: 0.05 }); strum("D", { when: 0.45, gain: 0.1, spread: 0.05 }); strum("G", { when: 0.9, gain: 0.12, spread: 0.07 }); },
 };
-function playTone(freq, dur = 2) { pluck(freq, { gain: 0.3, dur: Math.max(1.2, dur) }); }
+function playTone(freq, dur = 2) { if (Theory.instrument === "piano") pianoNote(freq, { gain: 0.25, dur }); else pluck(freq, { gain: 0.3, dur: Math.max(1.2, dur) }); }
 
 /* ---------- metronome ---------- */
 const METRO_SOUNDS = {
@@ -205,4 +233,4 @@ function matchChord(chroma, candidates) {
   return { best, margin: best && second ? best.score - second.score : best ? best.score : 0 };
 }
 
-window.AudioKit = { ctx, setSound, Sound, pluck, strum, sfx, playTone, mtof, Metro, METRO_SOUNDS, Mic, freqToMidi, detectPitch, matchChord };
+window.AudioKit = { ctx, setSound, Sound, pluck, pianoNote, strum, sfx, playTone, mtof, Metro, METRO_SOUNDS, Mic, freqToMidi, detectPitch, matchChord };

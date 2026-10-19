@@ -10,9 +10,9 @@ function loadPdfLib() {
   if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
   if (!pdfLibPromise) pdfLibPromise = new Promise((res, rej) => {
     const s = document.createElement("script");
-    s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-    s.onload = () => { pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; res(pdfjsLib); };
-    s.onerror = () => { pdfLibPromise = null; rej(new Error("The PDF reader hasn't downloaded yet. Open the app once on WiFi.")); };
+    s.src = "vendor/pdf.min.js";
+    s.onload = () => { pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js"; res(pdfjsLib); };
+    s.onerror = () => { pdfLibPromise = null; rej(new Error("Couldn't load the PDF reader. Reopen the app once while online.")); };
     document.head.appendChild(s);
   });
   return pdfLibPromise;
@@ -76,8 +76,8 @@ function isChordLine(line) {
 const SECTION_WORDS = "verse|chorus|bridge|intro|outro|pre-chorus|prechorus|pre chorus|interlude|solo|refrain|tag|coda|instrumental|hook|post-chorus|breakdown|ending|riff|coro|estribillo|puente";
 function headerOf(line) {
   const t = line.trim();
-  const m = t.match(/^\[([^\]]+)\]$/);
-  if (m && !T.isChord(m[1])) return m[1];
+  const m = t.match(/^\[([^\]]+)\]\s*(.*)$/);
+  if (m && !T.isChord(m[1]) && !/^[x0-9]{4,6}$/i.test(m[1]) && /[a-z]{2}/i.test(m[1]) && !/\[[A-G]/.test(m[2])) return m[2] ? m[1] + " " + m[2] : m[1];
   const m2 = t.match(new RegExp("^(" + SECTION_WORDS + ")\\s*\\d*\\s*:?$", "i"));
   return m2 ? t.replace(/:$/, "") : null;
 }
@@ -121,6 +121,7 @@ function parseSheet(raw) {
     let m;
     if (!info.title && (m = t.match(/^(.+?)\s+(?:chords|tab|tabs|ukulele chords|acordes)\s+(?:by|de|por)\s+(.+?)\s*$/i))) { info.title = m[1].trim(); info.artist = m[2].trim(); return; }
     if ((m = t.match(/^capo[:\s]*(?:on\s*)?(\d{1,2})(?:st|nd|rd|th)?(?:\s*fret)?/i))) { info.capo = parseInt(m[1], 10); return; }
+    if ((m = t.match(/^capo[:\s]+(i{1,3}|iv|v|vi{0,3}|ix)\b\W*$/i))) { info.capo = ["i","ii","iii","iv","v","vi","vii","viii","ix"].indexOf(m[1].toLowerCase()) + 1; return; }
     if (/^(no capo|capo[:\s]*(no|none|0))/i.test(t)) { info.capo = 0; return; }
     if ((m = t.match(/^key[:\s]+([A-G][#b]?m?)\b/i))) { info.key = m[1][0].toUpperCase() + m[1].slice(1); return; }
     if ((m = t.match(/^tuning[:\s]+(.+)$/i))) { info.tuning = m[1].trim(); return; }
@@ -137,19 +138,66 @@ function parseSheet(raw) {
     if (m) { info.title = m[1]; info.artist = info.artist || m[2]; } else info.title = t;
     if (!info.artist && keep.length && /^by\s+/i.test(keep[0].trim())) info.artist = keep.shift().trim().replace(/^by\s+/i, "");
   }
-  const body = convertSheet(keep.join("\n"));
+  const cl = cleanBody(convertSheet(keep.join("\n")));
+  const body = cl.body;
+  if (cl.bpm) info.bpm = cl.bpm;
+  if (cl.note) info.note = cl.note;
+  if (cl.tuning && !info.tuning) info.tuning = cl.tuning;
   const chords = [];
   body.replace(/\[([^\]]+)\]/g, (x, c) => { if (T.isChord(c)) chords.push(c); });
-  if (!info.key && chords.length) {
-    // the key is usually the first or last chord of the song
-    const c = T.parseChord(chords[0]);
-    info.key = T.SHARPS[c.root] + (T.family(c.q).startsWith("m") && T.family(c.q) !== "maj7" ? "m" : "");
-  }
+  // always work the key out from the chords themselves (as written on the sheet, before any capo)
+  if (chords.length) info.key = T.detectKey(chords);
   const tags = [];
   if (/\[[A-G][^\]]*5\]/.test(body)) tags.push("power");
   if (/^\s*[eBGDAE]\s*\|/m.test(body)) tags.push("riff");
   info.body = body; info.chords = chords; info.tags = tags;
   return info;
+}
+
+/* Tidy a converted sheet: drop the chord list UG prints up top, the strum-pattern
+   diagrams (their arrows don't survive a PDF, but the bpm does), site junk and
+   stray chord-diagram codes. Returns the clean body plus anything worth keeping. */
+function cleanBody(body) {
+  const out = { bpm: null, note: "", tuning: "" };
+  let L = String(body).split("\n");
+  const isHead = l => /^#\s/.test(l);
+  const chordOnly = l => { const t = l.replace(/\[([^\]]+)\]/g, (m, c) => T.isChord(c) ? "" : m).trim(); return /\[/.test(l) && !t; };
+  // bracket headers with words after them become real headers
+  L = L.map(l => { if (isHead(l)) return l; const h = headerOf(l); return h ? "# " + h : l; });
+  // before the first section header: drop title/artist/album lines, keep tabs, chords and real notes
+  const first = L.findIndex(isHead);
+  if (first > 0) {
+    const pre = L.slice(0, first), keepPre = [];
+    for (let i = 0; i < pre.length; i++) {
+      const t = pre[i].trim();
+      if (/^chords$/i.test(t)) { while (pre[i + 1] != null && (!pre[i + 1].trim() || chordOnly(pre[i + 1]))) i++; continue; }
+      if (/^description:/i.test(t)) {
+        let txt = t.replace(/^description:\s*/i, "");
+        while (pre[i + 1] && pre[i + 1].trim() && !/\[|^\s*[eBGDAE]\s*\|/.test(pre[i + 1])) txt += " " + pre[++i].trim();
+        out.note = txt.replace(/\s+/g, " ").trim().slice(0, 300);
+        continue;
+      }
+      const tab = /^\s*[eBGDAE]\s*\|/.test(pre[i]), words = t.split(/\s+/).length;
+      if (/\b(chords|tabs?|acordes)\b/i.test(t) && words <= 12 && !/\[/.test(t)) continue;
+      if (t && !tab && !/\[/.test(t) && words <= 8 && !/[.!?]$/.test(t) && !/^(note|tip)\b/i.test(t) && !/^[a-z-]/.test(t)) continue;
+      keepPre.push(pre[i]);
+    }
+    L = [...keepPre, ...L.slice(first)];
+  }
+  const keep = [];
+  for (let i = 0; i < L.length; i++) {
+    const l = L[i], t = l.trim();
+    let m;
+    if (/^chords$/i.test(t)) { if (L[i + 1] != null && !L[i + 1].trim()) i++; if (L[i + 1] && chordOnly(L[i + 1])) i++; continue; }
+    if ((m = t.match(/(?:^|\s)(\d{2,3})\s*bpm\s*$/i)) && t.split(/\s+/).length <= 9) { out.bpm = out.bpm || +m[1]; continue; }
+    if (/^bpm\s*[-–:]?\s*\d+/i.test(t)) { out.bpm = out.bpm || +t.match(/\d+/)[0]; continue; }
+    if (t && /^[\d\s&+.ae]+$/.test(t) && /\d/.test(t) && !/[a-df-z]/i.test(t.replace(/[ae]/g, ""))) continue; // strum counts like 1 & 2 &
+    if (/click transpose|e-?mail:|@\w+\.\w+|ultimate-guitar|^time signature|^strumming\s+pattern$|^tab by\b|^standard tuning$/i.test(t) || /^capo\s+[ivx]+\b/i.test(t) && t.split(/\s+/).length <= 4) continue;
+    if (/^(tune|tuned)\b.*(down|up|half|1\/2)|half[- ]step down/i.test(t)) { out.tuning = out.tuning || t.replace(/[.]$/, ""); continue; }
+    keep.push(l.replace(/\s*\[[x0-9]{4,6}\]/gi, "").replace(/\s+$/, ""));
+  }
+  out.body = keep.join("\n").replace(/^\s+/, "").replace(/\n{3,}/g, "\n\n").trim();
+  return out;
 }
 
 /* move every chord in a song body by some semitones */
@@ -158,4 +206,4 @@ function transposeBody(body, semis) {
   return String(body).replace(/\[([^\]]+)\]/g, (m, c) => T.isChord(c) ? "[" + T.transposeChord(c, semis) + "]" : m);
 }
 
-window.Importer = { pdfToText, parseSheet, convertSheet, loadPdfLib, transposeBody };
+window.Importer = { pdfToText, parseSheet, convertSheet, cleanBody, loadPdfLib, transposeBody };

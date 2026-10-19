@@ -50,7 +50,7 @@ main { max-width: 820px; margin: 0 auto; position: relative; z-index: 1; }
   padding: calc(14px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
   background: var(--scrim); border-bottom: 1px solid var(--border);
 }
-.top h1 { font-size: 21px; margin: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 800; }
+.top h1 { font-size: 21px; margin: 0; flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 800; }
 .logo { width: 30px; height: 30px; border-radius: 8px; }
 .iconBtn { background: none; border: 0; padding: 6px; color: var(--dim); border-radius: 12px; display: grid; place-items: center; min-width: 40px; min-height: 40px; }
 .iconBtn:hover { background: var(--accBg); }
@@ -120,14 +120,13 @@ nav.tabs {
 .seg.small { margin: 0; }
 .seg.small button { padding: 6px 10px; min-height: 34px; font-size: 14px; }
 
-/* cups (mastery fills like water) */
-.cup { --p: 0%; --s: 34px; position: relative; width: var(--s); height: calc(var(--s) * 1.18); flex: none; border-radius: 8px 8px calc(var(--s) * .3) calc(var(--s) * .3);
-  border: 2px solid var(--border2); overflow: hidden; background: var(--surface2); display: grid; place-items: end center; }
-.cup::before { content: ""; position: absolute; left: -20%; right: -20%; bottom: 0; height: var(--p); background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent), black 25%)); transition: height .6s; }
-.cup::after { content: ""; position: absolute; left: -50%; width: 200%; height: 8px; bottom: calc(var(--p) - 4px); background: radial-gradient(ellipse at 25% 100%, transparent 60%, var(--accent) 62%) 0 0 / 50% 100% repeat-x; opacity: .8; animation: slosh 6s ease-in-out infinite; }
-.cup.full { border-color: var(--accent); box-shadow: 0 0 14px -2px var(--glow); }
-.cup i { position: relative; z-index: 1; font-style: normal; font-size: calc(var(--s) * .3); font-weight: 800; color: var(--text); text-shadow: 0 1px 2px var(--shadow); margin-bottom: 2px; }
-@keyframes slosh { 50% { transform: translateX(12%); } }
+/* mastery meter: a still bar that fills from the bottom, in the song's color */
+.cup { --p: 0%; --s: 34px; flex: none; display: inline-flex; flex-direction: column; align-items: center; gap: 3px; }
+.cup b { position: relative; display: block; width: calc(var(--s) * .32); min-width: 10px; height: calc(var(--s) * 1.3); border-radius: 99px; overflow: hidden;
+  background: color-mix(in srgb, var(--accent) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent); }
+.cup b::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--p); border-radius: 99px; background: var(--accent); }
+.cup i { font-style: normal; font-size: max(10px, calc(var(--s) * .27)); font-weight: 800; color: var(--accent); line-height: 1; }
+.cup.full b { box-shadow: 0 0 12px -2px var(--glow); }
 
 /* library */
 .libTop { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
@@ -191,8 +190,10 @@ nav.tabs {
 .sheet .sec { font-size: .74em; text-transform: uppercase; letter-spacing: .12em; color: var(--accent); margin: 1.4em 0 .4em; font-family: Figtree, sans-serif; font-weight: 800; }
 .sheet .ln { display: flex; flex-wrap: wrap; margin: .2em 0; }
 .sheet .seg { display: inline-flex; flex-direction: column; white-space: pre; margin: 0; padding: 0; background: none; border: 0; border-radius: 0; }
-.sheet .ch { min-height: 1.3em; font-weight: 800; color: var(--accent); font-size: .88em; padding-right: .35em; }
-.chordBtn { background: none; border: 0; padding: 0; color: inherit; font-weight: 800; }
+.sheet .seg { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.sheet .ly { white-space: pre-wrap; overflow-wrap: break-word; }
+.sheet .ch { min-height: 1.3em; font-weight: 800; color: var(--chord); font-size: .88em; padding-right: .35em; }
+.chordBtn, .sheet .seg .chordBtn { background: none; border: 0; padding: 0; margin: 0; color: var(--chord); font: inherit; font-weight: 800; min-height: 0; flex: none; display: inline; border-radius: 4px; box-shadow: none; }
 .sheet .gap { height: .7em; }
 .tabline { margin: 0; font-size: .68em; color: var(--dim); }
 .preview { max-height: 360px; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 12px 16px; }
@@ -234,7 +235,8 @@ nav.tabs {
 .tScale .mid { height: 85%; background: var(--accent); width: 3px; }
 .tNeedle { position: absolute; bottom: 0; left: 50%; width: 6px; height: 48px; margin-left: -3px; border-radius: 3px; background: var(--bad); transition: left .12s; }
 .tNeedle.ok { background: var(--accent); box-shadow: 0 0 14px var(--glow); }
-.strings { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; width: 100%; }
+.strings { display: grid; grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); gap: 8px; width: 100%; }
+html[data-inst="uke"] .strings { max-width: 300px; margin: 0 auto; }
 .stringBox { display: flex; flex-direction: column; align-items: center; padding: 12px 0 8px; border-radius: 16px; border: 1px solid var(--border2); background: var(--surface); transition: background .3s, border-color .3s, box-shadow .3s; }
 .stringBox b { font-size: 22px; }
 .stringBox small { font-size: 11px; color: var(--muted); }
@@ -399,3 +401,77 @@ nav.tabs {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+
+/* ===================== COLOR SYSTEM =====================
+   The background stays calm; color lives in the content. Anything can
+   set --accent locally (a chapter, a tag, a song row) and its tints follow. */
+:root, html[data-theme="midnight"], html[data-theme="sepia"] {
+  --k-sea:#5fd3b5; --k-ember:#ffb06a; --k-violet:#b49cff; --k-pink:#ff7eb6; --k-gold:#f2c46b; --k-sky:#7cc4ff; --k-coral:#ff8f7a; --k-lime:#a8e07a;
+  --k-alt: var(--k-coral); --chord:#ffc46b; --keyW:#e9edf2; --keyB:#1a2226;
+}
+html[data-theme="sepia"] { --chord:#ffd08a; }
+html[data-theme="paper"], html[data-cham="light"] {
+  --k-sea:#14876f; --k-ember:#c25e12; --k-violet:#6b4fd1; --k-pink:#c42f78; --k-gold:#9a6b00; --k-sky:#1f6fb8; --k-coral:#c9442c; --k-lime:#4d8a1d;
+  --k-alt: var(--k-coral); --chord:#b05a00; --keyW:#ffffff; --keyB:#26343a;
+}
+html[data-theme="paper"] .diag.keys rect[fill="var(--keyW)"], html[data-cham="light"] .diag.keys rect[fill="var(--keyW)"] { stroke: var(--border2); }
+.tint, .chapter, .songRow, .tag.tint, .chip.tint, .barBtn, .tab, .rosterCup, .songChip, .miniChord, .chordCard {
+  --accBg: color-mix(in srgb, var(--accent) 13%, transparent); --glow: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.tag.tint { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: transparent; }
+.chip.tint { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.chip.tint.on { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); }
+.barBtn { color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.barBtn.on { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); border-color: var(--accent); }
+.miniChord span, .chordCard b, .pickTile b { color: var(--chord); }
+.tab[data-tab="practice"] { --accent: var(--k-ember); }
+.tab[data-tab="path"] { --accent: var(--k-violet); }
+.tab:not(.on) .tabIcon { color: color-mix(in srgb, var(--accent) 55%, var(--muted)); }
+.chapter .chHead { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--surface)), var(--surface) 70%); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.chapter .trail path { stroke: color-mix(in srgb, var(--accent) 45%, transparent); }
+.songRow { border-color: color-mix(in srgb, var(--accent) 16%, var(--border)); }
+
+/* instrument switcher in the header */
+.instSwitch { display: flex; flex: none; gap: 1px; padding: 3px; margin-left: auto; border-radius: 99px; background: var(--surface2); border: 1px solid var(--border); }
+.instSwitch button { border: 0; background: none; color: var(--muted); font: 700 12px/1 Figtree, sans-serif; padding: 7px 9px; border-radius: 99px; min-height: 30px; }
+.instSwitch button[data-k="guitar"] { --c: #5fd3b5; } .instSwitch button[data-k="uke"] { --c: #ff8a73; } .instSwitch button[data-k="piano"] { --c: #9db0ff; }
+html[data-theme="paper"] .instSwitch button[data-k="guitar"] { --c:#14876f; } html[data-theme="paper"] .instSwitch button[data-k="uke"] { --c:#d14e34; } html[data-theme="paper"] .instSwitch button[data-k="piano"] { --c:#4a5fd0; }
+.instSwitch button:not(.on) { color: color-mix(in srgb, var(--c) 70%, var(--muted)); }
+.instSwitch button.on { background: var(--c); color: var(--bg); }
+.instSwitch + .syncDot { margin-left: 8px; }
+@media (max-width: 420px) { .top:has(.instSwitch:not([hidden])) h1 { font-size: 19px; } .top:has(.instSwitch:not([hidden])) { gap: 8px; } }
+@media (max-width: 370px) { .instSwitch button { padding: 7px 6px; font-size: 11px; } .top:has(.instSwitch:not([hidden])) .logo { display: none; } }
+
+/* ===================== INSTRUMENT PALETTES ===================== */
+html[data-inst="uke"] { --accent:#ff8a73; --accBg:rgba(255,138,115,.13); --glow:rgba(255,138,115,.45); --chord:#ffd36b; --k-alt:#ffb3c7; --k-coral:#ffb3c7; }
+html[data-inst="uke"]:not([data-theme]), html[data-theme="midnight"][data-inst="uke"] {
+  --bg:#170f14; --surface:#21161d; --surface2:#1b1218; --border:#33222c; --border2:#4a3340; --text:#f6ece8; --dim:#d4bcb8; --muted:#90727a; --scrim:#170f14;
+  --ground: radial-gradient(120% 55% at 50% 110%, #3a1c12 0%, rgba(58,28,18,0) 60%), var(--bg);
+}
+html[data-theme="paper"][data-inst="uke"] { --accent:#d14e34; --accBg:rgba(209,78,52,.1); --glow:rgba(209,78,52,.35); --chord:#a35a00; --k-alt:#b8336b; --k-coral:#b8336b; }
+html[data-theme="sepia"][data-inst="uke"] { --accent:#f09070; --accBg:rgba(240,144,112,.13); --glow:rgba(240,144,112,.4); }
+html[data-inst="piano"] { --accent:#9db0ff; --accBg:rgba(157,176,255,.13); --glow:rgba(157,176,255,.45); --chord:#f5cf79; --k-alt:#f0a0dc; }
+html[data-inst="piano"]:not([data-theme]), html[data-theme="midnight"][data-inst="piano"] {
+  --bg:#0c0f1c; --surface:#141a2c; --surface2:#10152a; --border:#222a44; --border2:#323c5c; --text:#eef0fa; --dim:#b8bfdc; --muted:#6f7799; --scrim:#0c0f1c;
+  --ground: radial-gradient(120% 55% at 50% 110%, #1f1a3a 0%, rgba(31,26,58,0) 60%), var(--bg); --keyB:#0c0f1c;
+}
+html[data-theme="paper"][data-inst="piano"] { --accent:#4a5fd0; --accBg:rgba(74,95,208,.1); --glow:rgba(74,95,208,.35); --chord:#9a6400; --k-alt:#a8338f; }
+html[data-theme="sepia"][data-inst="piano"] { --accent:#a8b4f0; --accBg:rgba(168,180,240,.13); --glow:rgba(168,180,240,.4); }
+
+/* coming soon card + bulk import */
+.soon { text-align: center; padding: 34px 20px; border-radius: 24px; border: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--surface)), color-mix(in srgb, var(--k-alt) 6%, var(--surface))); margin-top: 18px; }
+.soon h2 { font-family: "Bricolage Grotesque", sans-serif; color: var(--accent); margin: 10px 0 6px; font-size: 26px; }
+.soon p { color: var(--dim); margin: 0 auto 14px; max-width: 34ch; }
+.bulkList { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.bulkRow { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); }
+.bulkRow .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.bulkRow small { color: var(--muted); }
+.bulkRow .st { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
+.bulkRow .st.ok { color: var(--k-sea); background: color-mix(in srgb, var(--k-sea) 14%, transparent); }
+.bulkRow .st.look { color: var(--k-ember); background: color-mix(in srgb, var(--k-ember) 14%, transparent); }
+.bulkRow .st.skip, .bulkRow .st.wait { color: var(--muted); background: var(--surface2); }
+.bulkRow .st.bad { color: var(--bad); background: var(--badBg); }
+.sheetNote { font-size: 14px; color: var(--dim); background: var(--surface2); border-radius: 12px; padding: 8px 12px; margin: 6px 0 0; }
+.bulkRow button.st { border: 0; font-family: inherit; }

@@ -9,26 +9,31 @@ VIEWS.practice = {
   title: () => "Practice",
   html() {
     const tiles = [
-      ["tuner", "tuner", "Tuner", "Listens through the mic. Works offline.", "#5fd3b5"],
+      ["tuner", "tuner", "Tuner", INST() === "uke" ? "Tunes G C E A through the mic." : "Listens through the mic. Works offline.", "var(--accent)"],
       ["metro", "metronome", "Metronome", "Steady time with a few sounds to pick from.", "#ffb06a"],
       ["chords", "chord", "Chord library", "Every chord, filtered your way.", "#8fb8ff"],
       ["flash", "bolt", "Chord Flash", "Switch on the beat. Don't stop strumming.", "#ffd166"],
       ["rush", "mic", "Chord Rush", "The mic counts your clean changes.", "#ff8fa3"],
       ["quiz", "cards", "Name That Shape", "Quick quiz on the chords you pick.", "#c9a7ff"],
       ["range", "wave", "Range finder", "Measure anyone's singing range.", "#7fe9cd"],
-    ];
-    const work = Object.keys(App.state.chordMarks).filter(c => App.state.chordMarks[c].m === "work");
+    ].filter(t => !(INST() === "piano" && t[0] === "tuner"));
+    const work = markedChords("work");
     return `<div class="tiles">${tiles.map(([h, ic, t, d, c]) => `<button class="tile" data-act="go" data-h="#/${h}" style="--tc:${c}">
         <span class="tileIcon">${icon(ic, 30)}</span><b>${t}</b><span>${d}</span></button>`).join("")}</div>
       ${work.length ? `<div class="card"><div class="row"><b>Chords that need work</b></div>
         <div class="chordStrip">${work.map(c => `<button class="miniChord" data-act="chord" data-c="${esc(c)}">${markDot(c)}${chordSVG(c, 0.6)}<span>${esc(c)}</span></button>`).join("")}</div>
         <button class="btn on" data-act="go" data-h="#/flash?chords=${encodeURIComponent(work.join(","))}">${icon("bolt", 18)} Flash these</button></div>` : ""}
-      <div class="card"><b>Three-minute warmup</b><ol class="warm"><li>Spider walk: frets 1-2-3-4 on every string, slow.</li><li>Chord Flash on the Starter four at 60 bpm.</li><li>One song you already know, start to finish.</li></ol></div>`;
+      <div class="card"><b>Three-minute warmup</b><ol class="warm">${INST() === "piano"
+        ? "<li>Five-finger scale in C, both hands, slow.</li><li>Chord Flash on C, F, G, Am at 60 bpm.</li><li>One song you already know, start to finish.</li>"
+        : INST() === "uke" ? "<li>Strum each open string and check it with the tuner.</li><li>Chord Flash on C, Am, F, G at 60 bpm.</li><li>One song you already know, start to finish.</li>"
+        : "<li>Spider walk: frets 1-2-3-4 on every string, slow.</li><li>Chord Flash on the Starter four at 60 bpm.</li><li>One song you already know, start to finish.</li>"}</ol></div>`;
   },
 };
 
 /* ---------------- TUNER ---------------- */
-const GUITAR = [["E", 40, "6th"], ["A", 45, "5th"], ["D", 50, "4th"], ["G", 55, "3rd"], ["B", 59, "2nd"], ["E", 64, "1st"]];
+const GUITAR_STR = [["E", 40, "6th"], ["A", 45, "5th"], ["D", 50, "4th"], ["G", 55, "3rd"], ["B", 59, "2nd"], ["E", 64, "1st"]];
+const UKE_STR = [["G", 67, "4th"], ["C", 60, "3rd"], ["E", 64, "2nd"], ["A", 69, "1st"]];
+const tunerStrings = () => INST() === "uke" ? UKE_STR : GUITAR_STR;
 VIEWS.tuner = {
   title: () => "Tuner",
   html(ctx) {
@@ -39,7 +44,7 @@ VIEWS.tuner = {
       <div class="tCents" aria-hidden="true"><div class="tScale"><span></span><span></span><span class="mid"></span><span></span><span></span></div><div class="tNeedle" id="tNeedle"></div></div>
       <div class="muted" id="tInfo">${d.err ? esc(d.err) : d.paused ? "Paused" : "Play one string at a time"}</div>
       ${d.err ? `<button class="btn on" data-act="tunerRetry">${icon("mic", 18)} Allow the mic</button>` : ""}
-      <div class="strings">${GUITAR.map(([n, m, s], i) => `<button class="stringBox ${d.done.has(i) ? "ok" : ""}" data-act="refTone" data-m="${m}" data-i="${i}" aria-label="${s} string ${n}, tap to hear it"><b>${n}</b><small>${s}</small></button>`).join("")}</div>
+      <div class="strings">${tunerStrings().map(([n, m, s], i) => `<button class="stringBox ${d.done.has(i) ? "ok" : ""}" data-act="refTone" data-m="${m}" data-i="${i}" aria-label="${s} string ${n}, tap to hear it"><b>${n}</b><small>${s}</small></button>`).join("")}</div>
       <p class="hint">Boxes turn green as each string lands in tune. Tap a box to hear its note.</p>
       ${d.done.size ? `<button class="btn ghost" data-act="tunerReset">${icon("refresh", 16)} Start over</button>` : ""}
     </div>`;
@@ -62,13 +67,13 @@ function startTuner(ctx) {
     n.classList.toggle("ok", ok);
     nd.style.left = (50 + Math.max(-50, Math.min(50, cents))) + "%";
     nd.classList.toggle("ok", ok);
-    const si = GUITAR.findIndex(g => g[1] === near);
-    inf.textContent = `${cents > 0 ? "+" : ""}${cents}¢ · ${si >= 0 ? GUITAR[si][2] + " string" : "between strings"}`;
+    const STR = tunerStrings(), si = STR.findIndex(g => g[1] === near);
+    inf.textContent = `${cents > 0 ? "+" : ""}${cents}¢ · ${si >= 0 ? STR[si][2] + " string" : "between strings"}`;
     if (ok && si >= 0) { streak = streakString === si ? streak + 1 : 1; streakString = si; } else streak = 0;
     if (streak >= 4 && !d.done.has(si)) {
       d.done.add(si); AudioKit.sfx.good();
       const box = $$(".stringBox", ctx.root)[si]; if (box) box.classList.add("ok");
-      if (d.done.size === 6) inf.textContent = "All six in tune. Nice.";
+      if (d.done.size === tunerStrings().length) inf.textContent = "All strings in tune. Nice.";
     }
   }).catch(() => { d.err = "Mic is blocked. Allow microphone access for this site, then tap below."; renderCtx(ctx); });
 }
@@ -135,7 +140,7 @@ VIEWS.chords = {
     return `<div class="filterBlock">
         <div class="chips scroll">${rootChip("all", "All roots")}${T.SHARPS.map((r, i) => rootChip(i, ["A#","D#","G#"].includes(r) ? T.FLATS[i] : r)).join("")}</div>
         <div class="chips scroll">${typeChip("all", "All types")}${T.TYPES.map(t => typeChip(t.q, t.label)).join("")}</div>
-        <div class="chips">${exChip("", "Everything")}${exChip("open", "Open shapes")}${exChip("work", "Needs work")}${exChip("solid", "Solid")}</div>
+        <div class="chips">${exChip("", "Everything")}${exChip("open", INST() === "piano" ? "White keys only" : "Open shapes")}${exChip("work", "Needs work")}${exChip("solid", "Solid")}</div>
       </div>
       <div class="libCount muted">${list.length} chords</div>
       <div class="chordGrid">${list.map(c => `<button class="chordCard" data-act="chord" data-c="${esc(c.name)}">${markDot(c.name)}${chordSVG(c.name, 0.95)}<b>${esc(c.name)}</b></button>`).join("") || `<p class="empty">No chords match.</p>`}</div>`;
@@ -144,9 +149,17 @@ VIEWS.chords = {
 ACT.chordFilter = (el, ctx) => { ctx.data[el.dataset.f] = el.dataset.v; AudioKit.sfx.tap(); renderCtx(ctx); };
 
 /* ---------------- shared chord picker ---------------- */
+const UKE_POOL = ["C","G","Am","F","Dm","Em","G7","C7","A7","D","A","E7","D7","Bb","Gm","Cm","Fm","Bm","Am7","Dm7","Em7","Cmaj7","Fmaj7","Gmaj7","Csus4","Dsus2","Asus4","E","B7","F#m"];
+const PIANO_POOL = ["C","F","G","Am","Dm","Em","G7","C7","D","A","E","Bb","Eb","Ab","Db","Gm","Cm","Fm","Bm","F#m","C#m","Cmaj7","Fmaj7","Dm7","Am7","Em7","Csus4","Gsus4","Dsus2","Cadd9"];
+const PRESETS_BY = {
+  uke: { "Uke starter": ["C","Am","F","G"], "Island four": ["C","G","Am","F"], "Sevens": ["G7","C7","A7","D7","E7"], "Minor mood": ["Am","Dm","Em","Gm"], "Stretch": ["D","E","Bb","Bm"] },
+  piano: { "Pop four": ["C","G","Am","F"], "Minor four": ["Am","F","C","G"], "Sevens": ["G7","C7","D7","A7"], "Black keys": ["Db","Eb","Ab","Bb"], "Pretty colors": ["Cmaj7","Fmaj7","Dm7","Am7"] },
+};
+const presetsHere = () => PRESETS_BY[INST()] || CHORD_PRESETS;
+const poolHere = () => INST() === "uke" ? UKE_POOL : INST() === "piano" ? PIANO_POOL : POOL;
 function pickerHTML(sel, { max = 0 } = {}) {
-  const pool = [...new Set([...sel, ...POOL])];
-  return `<div class="chips">${Object.entries(CHORD_PRESETS).map(([k, v]) => `<button class="chip" data-act="pickPreset" data-v="${v.join(",")}">${k}</button>`).join("")}<button class="chip ghost" data-act="pickClear">Clear</button></div>
+  const pool = [...new Set([...sel, ...poolHere()])];
+  return `<div class="chips">${Object.entries(presetsHere()).map(([k, v]) => `<button class="chip" data-act="pickPreset" data-v="${v.join(",")}">${k}</button>`).join("")}<button class="chip ghost" data-act="pickClear">Clear</button></div>
     <div class="pickGrid">${pool.map(c => { const i = sel.indexOf(c); return `<button class="pickTile ${i >= 0 ? "on" : ""}" data-act="pickChord" data-c="${esc(c)}" aria-pressed="${i >= 0}">${i >= 0 && !max ? `<span class="ord">${i + 1}</span>` : ""}${chordSVG(c, 0.55)}<b>${esc(c)}</b></button>`; }).join("")}</div>`;
 }
 ACT.pickChord = (el, ctx) => {
@@ -165,7 +178,7 @@ VIEWS.flash = {
   title: () => "Chord Flash",
   html(ctx) {
     const d = ctx.data;
-    if (!d.sel) { d.sel = (ctx.q.chords || "G,C,D,Em").split(",").filter(Boolean); d.bpm = +ctx.q.bpm || 60; d.beats = +ctx.q.beats || 4; d.secs = +ctx.q.secs || 60; d.order = ctx.q.order || "random"; d.sound = false; }
+    if (!d.sel) { d.sel = (ctx.q.chords || (INST() === "guitar" ? "G,C,D,Em" : "C,G,Am,F")).split(",").filter(Boolean); d.bpm = +ctx.q.bpm || 60; d.beats = +ctx.q.beats || 4; d.secs = +ctx.q.secs || 60; d.order = ctx.q.order || "random"; d.sound = false; }
     if (d.stage === "run") return `<div class="tool center stage">
         <div class="countIn" id="cd"></div>
         <div class="bigChord" id="bigChord"></div><div id="bigDiag"></div>
@@ -227,7 +240,7 @@ VIEWS.rush = {
   title: () => "Chord Rush",
   html(ctx) {
     const d = ctx.data;
-    if (!d.sel) { d.sel = (ctx.q.chords || "G,C").split(",").slice(0, 2); d.max = 2; }
+    if (!d.sel) { d.sel = (ctx.q.chords || (INST() === "guitar" ? "G,C" : "C,F")).split(",").slice(0, 2); d.max = 2; }
     const key = "rush:" + d.sel.join("-"), best = App.state.best[key] || 0;
     if (d.stage === "run") return `<div class="tool center stage">
         <div class="countIn" id="cd"></div>
@@ -290,7 +303,7 @@ VIEWS.quiz = {
   title: () => "Name That Shape",
   html(ctx) {
     const d = ctx.data;
-    if (!d.sel) { d.sel = (ctx.q.chords || "G,C,D,Em,Am,E,A,Dm,E7,A7,D7,G7").split(","); d.mode = "shape"; }
+    if (!d.sel) { d.sel = (ctx.q.chords || (INST() === "uke" ? "C,G,Am,F,Dm,Em,G7,C7,A7,D,A,E7" : INST() === "piano" ? "C,F,G,Am,Dm,Em,G7,D,A,E,Bb,Cmaj7" : "G,C,D,Em,Am,E,A,Dm,E7,A7,D7,G7")).split(","); d.mode = "shape"; }
     if (d.stage === "run") {
       const r = d.round, ans = r.ans;
       const opt = o => {

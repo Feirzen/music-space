@@ -116,7 +116,7 @@ function shapeAt(shape, rootString, root) {
 }
 
 /* Returns { frets, barre, simplified, key } */
-function chordShape(name) {
+function gtrShape(name) {
   const c = parseChord(name);
   if (!c) return null;
   const fam = family(c.q);
@@ -133,9 +133,11 @@ function chordShape(name) {
   return { frets: pick.frets, barre: pick.low, simplified: !MOVABLE[fam], key: null };
 }
 function chordEase(name) {
+  if (INSTR === "uke") { const u = ukeShape(name); return u ? u.ease : 3; }
+  if (INSTR === "piano") return pianoEase(name);
   const c = parseChord(name);
   if (!c) return 2;
-  const sh = chordShape(name);
+  const sh = gtrShape(name);
   let e;
   if (sh.key && EASE[sh.key] != null) e = EASE[sh.key];
   else if (sh.key) e = 2;
@@ -153,7 +155,7 @@ function shapesScore(chords, capo) {
   for (const ch in counts) { const w = Math.sqrt(counts[ch]); s += chordEase(transposeChord(ch, -capo)) * w; n += w; }
   return s / (n || 1) + capo * 0.1;
 }
-function bestCapo(chords, maxCapo = 7) {
+function bestCapo(chords, maxCapo = INSTR === "piano" ? 0 : 7) {
   let best = { capo: 0, score: Infinity };
   for (let capo = 0; capo <= maxCapo; capo++) {
     const s = shapesScore(chords, capo);
@@ -185,7 +187,7 @@ function keyOptions(chords, melody, singer, curShift = 0) {
   const out = [];
   shifts.forEach(({ s, r }) => {
     const sounding = chords.map(ch => transposeChord(ch, s));
-    for (let capo = 0; capo <= 7; capo++) out.push({ shift: s, capo, score: shapesScore(sounding, capo) + r + Math.abs(s) * 0.05 });
+    for (let capo = 0; capo <= (INSTR === "piano" ? 0 : 7); capo++) out.push({ shift: s, capo, score: shapesScore(sounding, capo) + r + Math.abs(s) * 0.05 });
   });
   out.sort((a, b) => a.score - b.score);
   const seen = new Set(), uniq = [];
@@ -249,7 +251,7 @@ const PATTERNS = {
              blurb: "Pluck the bass, then brush the top strings with your fingers. Sits between picking and strumming." },
 };
 function patternTab(chord, key) {
-  const sh = chordShape(chord), c = parseChord(chord);
+  const sh = gtrShape(chord), c = parseChord(chord);
   if (!sh || !c) return null;
   const f = sh.frets;
   const R = rootString(f, c.bass != null ? c.bass : c.root);
@@ -274,11 +276,117 @@ function allChords() {
   const out = [];
   SHARPS.forEach((r, i) => TYPES.forEach(t => {
     const name = (FLATS[i] !== r && ["A#","D#","G#"].includes(r) ? FLATS[i] : r) + t.q;
-    out.push({ name, root: i, type: t.q, open: !!(OPEN[name]) });
+    out.push({ name, root: i, type: t.q, open: isEasyShape(name) });
   }));
   return out;
 }
 
-window.Theory = { SHARPS, FLATS, NOTE_IDX, TYPES, mod12, midiName, nameToMidi, parseChord, isChord, transposeChord,
+/* =========================================================
+   INSTRUMENTS: guitar (default), ukulele (GCEA), piano.
+   chordShape() answers for whichever instrument is active.
+   ========================================================= */
+let INSTR = "guitar";
+function setInstrument(i) { INSTR = ["uke", "piano"].includes(i) ? i : "guitar"; ukeCache.clear(); }
+const UKE_TUNING = [67, 60, 64, 69]; // G C E A, low-to-high as drawn left-to-right
+const UKE_STD = {
+  "C":[0,0,0,3],"Cm":[0,3,3,3],"C7":[0,0,0,1],"Cmaj7":[0,0,0,2],"Cm7":[3,3,3,3],"Csus4":[0,0,1,3],"Csus2":[0,2,3,3],"C6":[0,0,0,0],
+  "D":[2,2,2,0],"Dm":[2,2,1,0],"D7":[2,2,2,3],"Dm7":[2,2,1,3],"Dsus4":[0,2,3,0],"Dsus2":[2,2,0,0],
+  "E":[1,4,0,2],"Em":[0,4,3,2],"E7":[1,2,0,2],"Em7":[0,2,0,2],
+  "F":[2,0,1,0],"Fm":[1,0,1,3],"F7":[2,3,1,0],"Fmaj7":[2,4,1,3],
+  "G":[0,2,3,2],"Gm":[0,2,3,1],"G7":[0,2,1,2],"Gmaj7":[0,2,2,2],"Gsus4":[0,2,3,3],
+  "A":[2,1,0,0],"Am":[2,0,0,0],"A7":[0,1,0,0],"Am7":[0,0,0,0],"Asus4":[2,2,0,0],"Asus2":[2,4,5,2],
+  "Bb":[3,2,1,1],"A#":[3,2,1,1],"B":[4,3,2,2],"Bm":[4,2,2,2],"B7":[2,3,2,2],"Bm7":[2,2,2,2],
+};
+const ukeCache = new Map();
+function ukeShape(name) {
+  if (ukeCache.has(name)) return ukeCache.get(name);
+  const c = parseChord(name);
+  if (!c) return null;
+  const fam = family(c.q);
+  let res = null;
+  for (const nm of [SHARPS[c.root] + c.q, FLATS[c.root] + c.q, SHARPS[c.root] + fam, FLATS[c.root] + fam]) {
+    if (UKE_STD[nm]) { res = { frets: UKE_STD[nm].slice(), key: nm, simplified: !nm.endsWith(c.q) || (fam !== c.q && nm.endsWith(fam)) }; break; }
+  }
+  if (!res) res = ukeSearch(c, fam);
+  if (res) {
+    const f = res.frets, fr = f.filter(x => x > 0), lo = fr.length ? Math.min(...fr) : 0, hi = fr.length ? Math.max(...fr) : 0;
+    const atLo = f.filter(x => x === lo && x > 0).length;
+    res.barre = atLo >= 2 && lo > 0 && fr.length >= 4 ? lo : 0;
+    const fingers = new Set(f.map((x, i) => x > 0 ? (res.barre && x === res.barre ? "b" : i) : null).filter(x => x != null)).size;
+    res.ease = 0.6 + hi * 0.28 + fingers * 0.3 + (hi - lo) * 0.25 + (res.barre ? 0.4 : 0) + (c.bass != null ? 0.2 : 0);
+  }
+  ukeCache.set(name, res);
+  return res;
+}
+function ukeSearch(c, fam) {
+  const t = (TYPES.find(x => x.q === fam) || TYPES[0]).tones.map(i => mod12(c.root + i));
+  let need = [...new Set(t)];
+  if (need.length > 4) need = need.filter(pc => pc !== mod12(c.root + 7));
+  const opts = UKE_TUNING.map(o => { const a = []; for (let f = 0; f <= 10; f++) if (need.includes(mod12(o + f))) a.push(f); return a; });
+  let best = null;
+  const walk = (i, cur) => {
+    if (i === 4) {
+      const pcs = new Set(cur.map((f, s) => mod12(UKE_TUNING[s] + f)));
+      if (!need.every(pc => pcs.has(pc))) return;
+      const fr = cur.filter(x => x > 0), lo = fr.length ? Math.min(...fr) : 0, hi = fr.length ? Math.max(...fr) : 0;
+      if (hi - lo > 3) return;
+      const atLo = cur.filter(x => x === lo && x > 0).length;
+      const fingers = atLo >= 2 ? fr.length - atLo + 1 : fr.length;
+      if (fingers > 4) return;
+      const score = hi + fingers * 0.35 + (hi - lo) * 0.6;
+      if (!best || score < best.score) best = { score, frets: cur.slice() };
+      return;
+    }
+    for (const f of opts[i]) { cur.push(f); walk(i + 1, cur); cur.pop(); }
+  };
+  walk(0, []);
+  return best ? { frets: best.frets, key: null, simplified: fam !== c.q && !/^\d/.test(c.q) } : null;
+}
+/* piano: a close voicing near middle C, plus the bass note for slash chords */
+function pianoVoicing(name) {
+  const c = parseChord(name);
+  if (!c) return null;
+  const t = (TYPES.find(x => x.q === family(c.q)) || TYPES[0]).tones;
+  const root = 60 + c.root - (c.root > 7 ? 12 : 0);
+  const notes = [...new Set(t)].map(i => root + (i === 2 ? 14 : i));
+  return { notes: notes.sort((a, b) => a - b), bass: c.bass != null ? 48 + c.bass - (c.bass > 7 ? 12 : 0) : null };
+}
+const isBlack = m => [1, 3, 6, 8, 10].includes(mod12(m));
+function pianoEase(name) {
+  const v = pianoVoicing(name);
+  if (!v) return 3;
+  return 1 + v.notes.filter(isBlack).length * 0.45 + Math.max(0, v.notes.length - 3) * 0.3 + (v.bass != null ? 0.3 : 0);
+}
+function chordShape(name) {
+  if (INSTR === "uke") return ukeShape(name);
+  if (INSTR === "piano") { const v = pianoVoicing(name); return v ? { piano: true, ...v, frets: [] } : null; }
+  return gtrShape(name);
+}
+function isEasyShape(name) {
+  if (INSTR === "uke") { const u = ukeShape(name); return !!u && u.frets.some(x => x === 0) && Math.max(...u.frets) <= 3; }
+  if (INSTR === "piano") { const v = pianoVoicing(name); return !!v && !v.notes.some(isBlack); }
+  return !!OPEN[name];
+}
+/* rough key of a chord list: score all 24 keys by how many chords fit, tonic bonus at start/end */
+function detectKey(chords) {
+  if (!chords.length) return "";
+  const MAJ = [[0,""],[2,"m"],[4,"m"],[5,""],[7,""],[9,"m"]], MIN = [[0,"m"],[3,""],[5,"m"],[7,"m"],[7,""],[8,""],[10,""]];
+  let best = null;
+  for (let r = 0; r < 12; r++) for (const minor of [false, true]) {
+    let s = 0;
+    chords.forEach((ch, idx) => {
+      const c = parseChord(ch); if (!c) return;
+      const f = family(c.q), m = f === "m" || f === "m7" || f === "dim";
+      const deg = mod12(c.root - r);
+      const fits = (minor ? MIN : MAJ).some(([d, q]) => d === deg && (q === "m") === m);
+      if (fits) s += 1;
+      if (deg === 0 && m === minor) s += idx === 0 ? 3 : idx === chords.length - 1 ? 1 : 0.6;
+    });
+    if (!best || s > best.s) best = { s, r, minor };
+  }
+  return (FLAT_KEYS.has(best.r) && !best.minor ? FLATS : SHARPS)[best.r] + (best.minor ? "m" : "");
+}
+
+window.Theory = { setInstrument, get instrument() { return INSTR; }, UKE_TUNING, pianoVoicing, isBlack, detectKey, gtrShape, SHARPS, FLATS, NOTE_IDX, TYPES, mod12, midiName, nameToMidi, parseChord, isChord, transposeChord,
   family, chordTones, chordShape, chordEase, bestCapo, keyOptions, rangeCost, describeFit, voiceType, VOICES,
   patternTab, PATTERNS, OPEN, allChords };

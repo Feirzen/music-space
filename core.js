@@ -61,6 +61,7 @@ const ICON = {
   diamond: '<path d="M12 3l8 9-8 9-8-9z"/>',
   ear: '<path d="M6 9a6 6 0 0 1 12 0c0 3-2 4-3 6s-1 4-3.5 4A2.5 2.5 0 0 1 9 16.5"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  keys: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v10M12 4v16M16 4v10M8 14v6M16 14v6"/>',
   speaker: '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/>',
 };
 const icon = (name, size = 22, extra = "") =>
@@ -82,6 +83,7 @@ const DEFAULT_STATE = () => ({
   userSongs: {},
   timer: null,
   sync: { owner: "Feirzen", repo: "music-space-private", lastSync: 0 },
+  instrument: "guitar",
 });
 
 const App = {
@@ -110,6 +112,8 @@ const App = {
     st.sync = Object.assign(DEFAULT_STATE().sync, st.sync || {});
     if (!Array.isArray(st.people) || !st.people.length) st.people = DEFAULT_PEOPLE();
     this.state = st;
+    T.setInstrument(st.instrument);
+    document.documentElement.dataset.inst = T.instrument;
     AudioKit.setSound(st.sound.on, st.sound.vol);
     AudioKit.Metro.sound = st.metroSound;
   },
@@ -152,6 +156,24 @@ function addXP(n) {
 }
 const person = id => App.state.people.find(p => p.id === id);
 
+/* ===================== INSTRUMENTS ===================== */
+const INSTRUMENTS = {
+  guitar: { label: "Guitar", word: "guitar", icon: "guitar" },
+  uke:    { label: "Uke", word: "uke", icon: "guitar" },
+  piano:  { label: "Piano", word: "piano", icon: "keys" },
+};
+const INST = () => T.instrument;
+/* progress, prefs and chord marks are kept per instrument (guitar keeps the plain keys) */
+const ik = id => INST() === "guitar" ? id : INST() + ":" + id;
+function switchInstrument(i) {
+  App.state.instrument = i; T.setInstrument(i);
+  document.documentElement.dataset.inst = T.instrument;
+  App.save(true); syncThemeMeta();
+  Router.render();
+}
+const songInst = s => s.inst || "guitar";
+const songHere = s => !s.type || songInst(s) === INST();
+
 /* ===================== THEMES ===================== */
 const THEMES = {
   midnight:  { label: "Campfire", swatch: "linear-gradient(135deg,#0a1214 40%,#2b1a10)" },
@@ -173,8 +195,8 @@ function makeChameleon() {
     text: H(h,26,95), dim: H(h,14,74), muted: H(h,12,50), accent: H(acc,74,63), ok: "hsl(158 66% 56%)", bad: "hsl(0 82% 73%)", star: "hsl(38 92% 55%)", ember: H(acc + 40,90,65),
     shadow: "rgba(0,0,0,.5)", okBg: "hsl(158 66% 56% / 13%)", badBg: "hsl(0 82% 73% / 13%)", scrim: H(h,26,7,94), accBg: H(acc,74,63,14), glow: H(acc,74,63,45) } };
 }
-function paintChameleon(p) { chamMode = p.mode; CHAM_VARS.forEach(v => document.documentElement.style.setProperty("--" + v, p.vars[v])); syncThemeMeta(); }
-function clearCham() { CHAM_VARS.forEach(v => document.documentElement.style.removeProperty("--" + v)); }
+function paintChameleon(p) { chamMode = p.mode; document.documentElement.dataset.cham = p.mode; CHAM_VARS.forEach(v => document.documentElement.style.setProperty("--" + v, p.vars[v])); syncThemeMeta(); }
+function clearCham() { delete document.documentElement.dataset.cham; CHAM_VARS.forEach(v => document.documentElement.style.removeProperty("--" + v)); }
 function rollChameleon() { if (App.state.theme === "chameleon" && !App.state.chamLock) paintChameleon(makeChameleon()); }
 function applyTheme() {
   const t = THEMES[App.state.theme] ? App.state.theme : "midnight";
@@ -189,7 +211,7 @@ function lockChameleon() {
 }
 
 /* ===================== SONGS ===================== */
-function allSongs() { return [...BUILTIN_SONGS, ...Object.values(App.state.userSongs || {}).filter(s => !s.deleted)]; }
+function allSongs(any) { return [...BUILTIN_SONGS, ...Object.values(App.state.userSongs || {}).filter(s => !s.deleted && (any || songHere(s)))]; }
 function getSong(id) {
   return BUILTIN_SONGS.find(s => s.id === id) || (App.state.userSongs[id] && !App.state.userSongs[id].deleted ? App.state.userSongs[id] : null);
 }
@@ -205,7 +227,7 @@ function keyRoot(song) {
 const isMinorKey = song => /^[A-G][#b]?m(?!aj)/.test(song.key || "");
 function findByTitle(title) {
   const n = norm(title);
-  return Object.values(App.state.userSongs).find(s => !s.deleted && s.status !== "review" && (norm(s.title) === n || norm(s.title).startsWith(n) || n.startsWith(norm(s.title)))) || null;
+  return Object.values(App.state.userSongs).find(s => !s.deleted && songInst(s) === "guitar" && s.status !== "review" && (norm(s.title) === n || norm(s.title).startsWith(n) || n.startsWith(norm(s.title)))) || null;
 }
 /* lesson step -> the song to use: your copy of a roster song if you have it, else the built-in fallback */
 function resolveStepSong(step) {
@@ -224,11 +246,11 @@ function hintFor(title) {
 
 /* ===================== MASTERY ===================== */
 const REVIEW_STEPS = [1, 3, 7, 14, 30];
-function mastery(id) { return App.state.mastery[id] || { best: 0, sessions: [] }; }
+function mastery(id) { return App.state.mastery[ik(id)] || { best: 0, sessions: [] }; }
 function masteryPct(id) { const m = mastery(id); return m.sessions.length ? m.sessions[m.sessions.length - 1].score : 0; }
 function bestPct(id) { return mastery(id).best || 0; }
 function recordSession(id, score, sing) {
-  const m = App.state.mastery[id] || (App.state.mastery[id] = { best: 0, sessions: [] });
+  const m = App.state.mastery[ik(id)] || (App.state.mastery[ik(id)] = { best: 0, sessions: [] });
   m.sessions.push({ d: today(), score, sing: sing ?? null });
   if (m.sessions.length > 40) m.sessions = m.sessions.slice(-40);
   m.best = Math.max(m.best || 0, score);
@@ -250,31 +272,56 @@ function reviewDue() { return allSongs().filter(s => { const d = dueInfo(s.id); 
 function chordSVG(name, size = 1) {
   const sh = T.chordShape(name);
   if (!sh) return `<div class="nodiag">${esc(name)}</div>`;
-  const f = sh.frets, played = f.filter(x => x > 0);
+  if (sh.piano) return keysSVG(sh, name, size);
+  const f = sh.frets, n = f.length, played = f.filter(x => x > 0);
   const maxF = played.length ? Math.max(...played) : 0, minF = played.length ? Math.min(...played) : 0;
   const base = maxF <= 4 ? 1 : minF;
-  const W = 92 * size, H = 112 * size, x0 = 16 * size, y0 = 22 * size, gw = 60 * size, gh = 76 * size;
-  const sx = i => x0 + (gw / 5) * i, fy = n => y0 + (gh / 5) * n;
+  const W = 92 * size, H = 112 * size, sp = 12 * size, gw = sp * (n - 1), x0 = (W - gw) / 2 - (base > 1 ? 4 * size : 0), y0 = 22 * size, gh = 76 * size;
+  const sx = i => x0 + sp * i, fy = k => y0 + (gh / 5) * k;
   let g = `<svg class="diag" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(name)} chord">`;
   if (base === 1) g += `<rect x="${x0 - 1}" y="${y0 - 3 * size}" width="${gw + 2}" height="${4 * size}" fill="var(--text)" rx="1"/>`;
   else g += `<text x="${x0 + gw + 5 * size}" y="${fy(0.7)}" font-size="${10 * size}" fill="var(--dim)">${base}fr</text>`;
   for (let i = 0; i <= 5; i++) g += `<line x1="${x0}" y1="${fy(i)}" x2="${x0 + gw}" y2="${fy(i)}" stroke="var(--border2)" stroke-width="${size}"/>`;
-  for (let i = 0; i < 6; i++) g += `<line x1="${sx(i)}" y1="${y0}" x2="${sx(i)}" y2="${y0 + gh}" stroke="var(--dim)" stroke-width="${size}"/>`;
-  if (sh.barre && sh.barre >= base) {
+  for (let i = 0; i < n; i++) g += `<line x1="${sx(i)}" y1="${y0}" x2="${sx(i)}" y2="${y0 + gh}" stroke="var(--dim)" stroke-width="${size}"/>`;
+  const barreOn = sh.barre && sh.barre >= base && f.filter(v => v === sh.barre).length >= 2;
+  if (barreOn) {
     const strs = f.map((x, i) => x === sh.barre ? i : -1).filter(i => i >= 0);
-    if (strs.length >= 2) {
-      const a = strs[0], b = strs[strs.length - 1], row = sh.barre - base + 0.5;
-      g += `<rect x="${sx(a) - 5 * size}" y="${fy(row) - 5 * size}" width="${sx(b) - sx(a) + 10 * size}" height="${10 * size}" rx="${5 * size}" fill="var(--accent)"/>`;
-    }
+    const a = strs[0], b = strs[strs.length - 1], row = sh.barre - base + 0.5;
+    g += `<rect x="${sx(a) - 5 * size}" y="${fy(row) - 5 * size}" width="${sx(b) - sx(a) + 10 * size}" height="${10 * size}" rx="${5 * size}" fill="var(--chord)"/>`;
   }
   f.forEach((x, i) => {
     if (x < 0) g += `<text x="${sx(i)}" y="${y0 - 8 * size}" font-size="${10 * size}" text-anchor="middle" fill="var(--muted)">×</text>`;
     else if (x === 0) g += `<circle cx="${sx(i)}" cy="${y0 - 11 * size}" r="${3.4 * size}" fill="none" stroke="var(--dim)" stroke-width="${1.2 * size}"/>`;
-    else if (!(sh.barre && x === sh.barre && f.filter(v => v === sh.barre).length >= 2)) g += `<circle cx="${sx(i)}" cy="${fy(x - base + 0.5)}" r="${5.2 * size}" fill="var(--accent)"/>`;
+    else if (!(barreOn && x === sh.barre)) g += `<circle cx="${sx(i)}" cy="${fy(x - base + 0.5)}" r="${5.2 * size}" fill="var(--chord)"/>`;
   });
   return g + `</svg>`;
 }
-const markOf = c => (App.state.chordMarks[c] || {}).m || "";
+/* piano: two octaves from the C at or below the lowest chord note; chord keys light up, slash bass shown on its own octave */
+function keysSVG(v, name, size = 1) {
+  const W = 92 * size, H = 112 * size;
+  // a window of white keys from one below the lowest note to one above the highest (at least 8 wide)
+  let lo = v.notes[0] - 1; while (T.isBlack(lo)) lo--;
+  let hi = v.notes[v.notes.length - 1] + 1; while (T.isBlack(hi)) hi++;
+  const whites = [], blacks = [];
+  for (let m = lo; m <= hi; m++) (T.isBlack(m) ? blacks : whites).push(m);
+  while (whites.length < 8) { hi++; if (T.isBlack(hi)) blacks.push(hi); else whites.push(hi); }
+  const ww = (W - 4 * size) / whites.length, top = 24 * size, kh = 62 * size, x0 = 2 * size;
+  const on = new Set(v.notes), bassPc = v.bass != null ? T.mod12(v.bass) : null;
+  let g = `<svg class="diag keys" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(name)} chord on piano">`;
+  whites.forEach((m, i) => g += `<rect x="${x0 + i * ww + 0.5}" y="${top}" width="${ww - 1}" height="${kh}" rx="${1.5 * size}" fill="${on.has(m) ? "var(--chord)" : "var(--keyW)"}"/>`);
+  blacks.forEach(m => {
+    const wi = whites.indexOf(m - 1);
+    if (wi < 0 || wi >= whites.length - 1) return;
+    g += `<rect x="${x0 + (wi + 1) * ww - ww * 0.32}" y="${top}" width="${ww * 0.64}" height="${kh * 0.6}" rx="${1.2 * size}" fill="${on.has(m) ? "var(--chord)" : "var(--keyB)"}" ${on.has(m) ? `stroke="var(--keyB)" stroke-width="${size}"` : ""}/>`;
+  });
+  if (bassPc != null) g += `<text x="${W / 2}" y="${top + kh + 16 * size}" font-size="${10 * size}" text-anchor="middle" fill="var(--dim)">left hand: ${esc(T.SHARPS[bassPc])}</text>`;
+  return g + `</svg>`;
+}
+const markOf = c => (App.state.chordMarks[ik(c)] || {}).m || "";
+/* chord names marked a given way, for the current instrument */
+const markedChords = m => Object.keys(App.state.chordMarks)
+  .filter(k => (INST() === "guitar" ? !k.includes(":") : k.startsWith(INST() + ":")) && App.state.chordMarks[k].m === m)
+  .map(k => k.replace(/^[a-z]+:/, ""));
 function markDot(c) {
   const m = markOf(c);
   return m === "solid" ? `<span class="mk solid" title="Solid">${icon("check", 11)}</span>` : m === "work" ? `<span class="mk work" title="Needs work"></span>` : "";
@@ -309,6 +356,7 @@ const Router = {
     $$(".tab").forEach(t => t.classList.toggle("on", t.dataset.tab === TABS[r.name]));
     $("#backBtn").hidden = ROOT_PAGES.includes(r.name);
     $("#logo").hidden = !ROOT_PAGES.includes(r.name);
+    paintInstSwitch(ROOT_PAGES.includes(r.name));
     TimerUI.paintPill();
   },
 };
@@ -362,6 +410,13 @@ function openTool(name, arg, q, fromCtx) {
   else Router.go("#/" + name + (arg ? "/" + encodeURIComponent(arg) : "") + (q && Object.keys(q).length ? "?" + new URLSearchParams(q) : ""));
 }
 
+function paintInstSwitch(show) {
+  const el = $("#instSwitch");
+  if (!el) return;
+  el.hidden = !show;
+  el.innerHTML = Object.entries(INSTRUMENTS).map(([k, v]) => `<button class="${INST() === k ? "on" : ""}" data-act="inst" data-k="${k}" aria-pressed="${INST() === k}">${v.label}</button>`).join("");
+}
+
 /* ===================== ACTIONS ===================== */
 const ACT = {};
 document.addEventListener("click", e => {
@@ -383,6 +438,7 @@ document.addEventListener("change", e => {
   if (el && ACT[el.dataset.change]) ACT[el.dataset.change](el, ctxOf(el), e);
 });
 ACT.go = el => Router.go(el.dataset.h);
+ACT.inst = el => { if (el.dataset.k === INST()) return; switchInstrument(el.dataset.k); AudioKit.strum(el.dataset.k === "piano" ? "C" : "G", { gain: 0.1 }); };
 ACT.back = () => Router.back();
 ACT.closeSheet = () => Sheet.close();
 ACT.closeModal = () => Modal.close();
@@ -399,7 +455,7 @@ function openChord(c) {
       <button class="btn ${markOf(c) === "solid" ? "on" : ""}" data-act="markChord" data-c="${esc(c)}" data-m="solid">${icon("check", 18)} Solid</button>
       <button class="btn ${markOf(c) === "work" ? "warn on" : ""}" data-act="markChord" data-c="${esc(c)}" data-m="work">Needs work</button>
     </div>
-    <details><summary>Fingerpick tab</summary><pre>${esc(T.patternTab(c, "arp44") || "")}</pre></details>
+    ${INST() === "guitar" ? `<details><summary>Fingerpick tab</summary><pre>${esc(T.patternTab(c, "arp44") || "")}</pre></details>` : ""}
     <button class="btn ghost full" data-act="closeModal">Close</button></div>`);
   AudioKit.strum(c);
 }
@@ -407,7 +463,7 @@ ACT.chord = el => openChord(el.dataset.c);
 ACT.hear = el => AudioKit.strum(el.dataset.c);
 ACT.markChord = el => {
   const c = el.dataset.c, m = el.dataset.m, cur = markOf(c);
-  App.state.chordMarks[c] = { m: cur === m ? "" : m, at: Date.now() };
+  App.state.chordMarks[ik(c)] = { m: cur === m ? "" : m, at: Date.now() };
   App.save(); AudioKit.sfx.tap(); openChord(c);
   if (Router.ctx) renderCtx(Router.ctx);
   if (Sheet.ctx) renderCtx(Sheet.ctx);

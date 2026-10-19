@@ -32,6 +32,12 @@ VIEWS.settings = {
     (async () => {
       let msg = navigator.serviceWorker && navigator.serviceWorker.controller ? "Saved for offline use." : "Offline copy not ready yet. Reopen the app once.";
       try { if (navigator.storage && navigator.storage.persisted) msg += (await navigator.storage.persisted()) ? " Storage is protected." : " Open it from your Home Screen to keep storage safe."; } catch (e) {}
+      const mine = Object.values(App.state.userSongs).filter(x => !x.deleted);
+      const withPdf = mine.filter(x => x.file);
+      let here = 0, backed = withPdf.filter(x => x.uploaded).length;
+      for (const x of withPdf) { try { if (await IDB.get(x.file)) here++; } catch (e) {} }
+      msg += ` On this device: all ${mine.length + BUILTIN_SONGS.length} songs, and ${here} of ${withPdf.length} original PDFs.`;
+      if (withPdf.length && backed < withPdf.length) msg += ` ${withPdf.length - backed} PDF${withPdf.length - backed > 1 ? "s" : ""} still need to back up. Sync on the device you added them from.`;
       const el = $("#offInfo", ctx.root); if (el) el.textContent = msg;
     })();
   },
