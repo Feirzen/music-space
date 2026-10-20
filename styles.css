@@ -562,3 +562,5 @@ html[data-theme="sepia"][data-inst="voice"] { --accent:#f0c27a; }
 .vImg { width: 100%; border-radius: 12px; display: block; }
 @media (max-width: 430px) { .top:has(.instSwitch:not([hidden])) .logo { display: none; } }
 .card > b .ic { display: inline-block; vertical-align: -3px; margin-right: 4px; }
+.unlockCard .row input { flex: 1; min-width: 0; font: inherit; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border2); background: var(--surface2); color: var(--text); }
+#famBlob { width: 100%; font: 12px/1.4 monospace; padding: 10px; border-radius: 12px; border: 1px solid var(--border2); background: var(--surface2); color: var(--text); }

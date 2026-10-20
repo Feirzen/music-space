@@ -16,17 +16,17 @@ VIEWS.settings = {
           <button class="btn small" data-act="chamRoll" ${s.chamLock ? "disabled" : ""}>New colors</button></div>
           <p class="hint">Chameleon picks new colors each time you change screens. Freeze one you love.</p>` : ""}
         <label class="check"><input type="checkbox" data-change="ambientToggle" ${s.ambient ? "checked" : ""}> Floating embers</label></div>
-      <div class="card"><b>Feedback</b><p class="hint">Spot something off, or have an idea? Flag it and it gets handled in the background.</p>
-        <div class="row wrap"><button class="btn small" data-act="flagPlant">Plant a flag</button><button class="btn small" data-act="flagGeneral">General feedback</button></div></div>
       <div class="card"><b>Sound</b>
         <label class="check"><input type="checkbox" data-change="soundToggle" ${s.sound.on ? "checked" : ""}> Sound effects</label>
         <div class="stepRow"><span>Volume</span><input type="range" min="0" max="1" step="0.05" value="${s.sound.vol}" data-input="soundVol" aria-label="Volume"></div>
         <button class="btn small" data-act="soundTest">${icon("speaker", 16)} Test</button></div>
+      ${!tok && Unlock.blob ? unlockCardHTML() : ""}
       <div class="card"><b>Private library sync</b>
         <p class="hint">Your songs, PDFs and progress save to your private GitHub repo so every device matches. The token stays on this device.</p>
         <div class="row2"><label class="field">GitHub user<input id="sOwner" value="${esc(s.sync.owner)}"></label><label class="field">Private repo<input id="sRepo" value="${esc(s.sync.repo)}"></label></div>
         <label class="field">Token<input id="sToken" type="password" value="${esc(tok)}" placeholder="github_pat_…" autocomplete="off"></label>
-        <div class="row wrap"><button class="btn on" data-act="saveSync">${icon("refresh", 16)} Save & sync now</button><span class="muted small">${s.sync.lastSync ? "Last sync " + new Date(s.sync.lastSync).toLocaleString() : "Never synced"}</span></div></div>
+        <div class="row wrap"><button class="btn on" data-act="saveSync">${icon("refresh", 16)} Save & sync now</button><span class="muted small">${s.sync.lastSync ? "Last sync " + new Date(s.sync.lastSync).toLocaleString() : "Never synced"}</span></div>
+        ${tok ? `<button class="btn ghost small" data-act="famShare">${icon("lock", 14)} ${Unlock.blob ? "Change the family password" : "Set a family password for new devices"}</button>` : ""}</div>
       ${spotSettingsHTML()}
       <div class="card"><b>Takes</b><label class="check"><input type="checkbox" data-change="takesBackup" ${s.takesBackup !== false ? "checked" : ""}> Back up recorded takes to my private repo</label>
         <p class="hint">Takes always stay on the device that recorded them. With backup on, your other devices can play them too.</p></div>
@@ -55,8 +55,6 @@ ACT.ambientToggle = el => { App.state.ambient = el.checked; Ambient.set(el.check
 ACT.soundToggle = el => { App.state.sound.on = el.checked; AudioKit.setSound(el.checked, App.state.sound.vol); App.save(true); };
 ACT.soundVol = el => { App.state.sound.vol = +el.value; AudioKit.setSound(App.state.sound.on, +el.value); App.save(true); };
 ACT.soundTest = () => AudioKit.sfx.done();
-ACT.flagPlant = () => { if (window.Kit) setTimeout(() => Kit.flag.plant(), 0); };
-ACT.flagGeneral = () => { if (window.Kit) setTimeout(() => Kit.flag.general(), 0); };
 ACT.takesBackup = el => { App.state.takesBackup = el.checked; App.save(true); };
 ACT.saveSync = async (el, ctx) => {
   const s = App.state;
@@ -88,6 +86,7 @@ async function boot() {
   App.setSyncStatus(GH.ready() ? "ok" : "off");
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+  Unlock.load().then(b => { if (b && !GH.ready() && ["library", "settings"].includes(Router.cur.name)) Router.render(); });
   if (fromSpotify) Spot.finishLogin().then(() => Router.render());
   if (GH.ready()) Sync.run(true).then(() => Spot.soon()); else Spot.soon();
   window.addEventListener("online", () => Sync.run(true));

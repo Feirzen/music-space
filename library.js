@@ -60,7 +60,7 @@ VIEWS.library = {
     const FILTER_LABELS = Object.fromEntries([...TAGS, ["mastered", "Mastered"], ["learning", "Learning"], ["known", "Chords I know"], ["ri", "Fits Ri"]]);
     const nActive = d.filters.size + (d.level ? 1 : 0);
     const chip = (k, l) => `<button class="chip ${tagColor(k) ? "tint" : ""} ${d.filters.has(k) ? "on" : ""}" ${tagColor(k) ? `style="--accent:${tagColor(k)}"` : ""} data-act="libFilter" data-k="${k}">${l}</button>`;
-    return `
+    return `${!GH.ready() && typeof Unlock !== "undefined" && Unlock.blob ? unlockCardHTML() : ""}
       <div class="libTop">
         <label class="searchBox">${icon("search", 18)}<input id="libSearch" type="search" placeholder="Search songs" value="${esc(d.q)}" data-input="libSearch" aria-label="Search songs"></label>
         <button class="btn on" data-act="go" data-h="#/import">${icon("plus", 18)} Add song</button>
