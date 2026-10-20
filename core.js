@@ -96,7 +96,14 @@ const DEFAULT_STATE = () => ({
   sync: { owner: "Feirzen", repo: "music-space-private", lastSync: 0 },
   instrument: "guitar",
   vocals: {}, takes: {}, spotify: { clientId: "", playlistId: "", at: 0 }, spCache: {},
+  days: {}, lastSong: null,
+  profiles: [{ id: "p-naverog", name: "Naverog", color: "#5fd3b5", at: 1 }], byProfile: {}, activeProfile: null,
 });
+/* progress that belongs to one person. Everything else (songs, singers, lists, takes, Spotify) is shared */
+const PER_PROFILE = ["xp", "streak", "lessonsDone", "goalSkips", "lessonDays", "mastery", "chordMarks", "best", "songPrefs", "vocals", "days", "lastSong"];
+const blankProfileData = () => { const d = DEFAULT_STATE(); return Object.fromEntries(PER_PROFILE.map(k => [k, d[k]])); };
+const pickProfileData = st => Object.fromEntries(PER_PROFILE.map(k => [k, st[k]]));
+const deviceProfile = () => { try { return localStorage.getItem("ms.profile") || ""; } catch (e) { return ""; } };
 
 const App = {
   state: null,
@@ -125,7 +132,13 @@ const App = {
     st.spotify = Object.assign(DEFAULT_STATE().spotify, st.spotify || {});
     st.vocals = st.vocals || {}; st.takes = st.takes || {}; st.spCache = st.spCache || {};
     if (!Array.isArray(st.people) || !st.people.length) st.people = DEFAULT_PEOPLE();
+    if (!Array.isArray(st.profiles) || !st.profiles.length) st.profiles = DEFAULT_STATE().profiles;
+    st.byProfile = st.byProfile || {}; st.days = st.days || {};
+    // the progress already on this device belongs to whoever it was last loaded for (first time: the first profile)
+    if (!st.activeProfile) st.activeProfile = st.profiles[0].id;
     this.state = st;
+    const want = deviceProfile();
+    if (want && want !== st.activeProfile && st.profiles.some(p => p.id === want && !p.deleted)) this.useProfile(want, true);
     T.setInstrument(st.instrument);
     document.documentElement.dataset.inst = T.instrument;
     AudioKit.setSound(st.sound.on, st.sound.vol);
@@ -135,15 +148,27 @@ const App = {
     try { localStorage.setItem("ms.state", JSON.stringify(this.state)); } catch (e) {}
     if (!noSync && window.Sync) Sync.soon();
   },
+  /* switch whose progress is loaded: park the current person's progress, load the other's */
+  useProfile(id, quiet) {
+    const st = this.state;
+    st.byProfile[st.activeProfile] = pickProfileData(st);
+    Object.assign(st, blankProfileData(), st.byProfile[id] || {});
+    st.activeProfile = id;
+    try { localStorage.setItem("ms.profile", id); } catch (e) {}
+    if (!quiet) { this.save(); Router.render(); }
+  },
+  profile() { return this.state.profiles.find(p => p.id === this.state.activeProfile) || this.state.profiles[0]; },
   progressSnapshot() {
     const s = this.state;
-    return { xp: s.xp, streak: s.streak, lessonsDone: s.lessonsDone, goalSkips: s.goalSkips, lessonDays: s.lessonDays,
-             mastery: s.mastery, chordMarks: s.chordMarks, best: s.best, songPrefs: s.songPrefs, people: s.people, lists: s.lists,
-             vocals: s.vocals, takes: s.takes, spotify: s.spotify };
+    return { v: 3, profiles: s.profiles, people: s.people, lists: s.lists, takes: s.takes, spotify: s.spotify,
+             byProfile: { ...s.byProfile, [s.activeProfile]: pickProfileData(s) } };
   },
   applySynced(songs, p) {
-    this.state.userSongs = songs;
-    Object.assign(this.state, p);
+    const st = this.state;
+    st.userSongs = songs;
+    ["profiles", "people", "lists", "takes", "spotify"].forEach(k => { if (p[k]) st[k] = p[k]; });
+    st.byProfile = p.byProfile || {};
+    Object.assign(st, blankProfileData(), st.byProfile[st.activeProfile] || {});
     this.save(true);
     if (["library", "path"].includes(Router.cur.name)) Router.render();
   },
@@ -159,6 +184,12 @@ const App = {
 };
 window.App = App;
 
+/* a practice day: anything that earns XP counts. lessons are counted separately */
+function markDay(lesson) {
+  const s = App.state, d = today();
+  const cur = s.days[d] || { p: 0, l: 0 };
+  s.days[d] = { p: 1, l: (cur.l || 0) + (lesson ? 1 : 0) };
+}
 function addXP(n) {
   const s = App.state, d = today();
   if (s.streak.last !== d) {
@@ -167,6 +198,7 @@ function addXP(n) {
     s.streak.last = d;
   }
   s.xp += Math.max(0, Math.round(n));
+  markDay();
   App.save();
 }
 const person = id => App.state.people.find(p => p.id === id);
@@ -277,6 +309,7 @@ function recordSession(id, score, sing) {
   m.sessions.push({ d: today(), score, sing: sing ?? null });
   if (m.sessions.length > 40) m.sessions = m.sessions.slice(-40);
   m.best = Math.max(m.best || 0, score);
+  App.state.lastSong = { id, inst: INST(), at: Date.now() };
   App.save();
 }
 function attemptDays(id) { return new Set(mastery(id).sessions.map(s => s.d)).size; }

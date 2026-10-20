@@ -564,3 +564,42 @@ html[data-theme="sepia"][data-inst="voice"] { --accent:#f0c27a; }
 .card > b .ic { display: inline-block; vertical-align: -3px; margin-right: 4px; }
 .unlockCard .row input { flex: 1; min-width: 0; font: inherit; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border2); background: var(--surface2); color: var(--text); }
 #famBlob { width: 100%; font: 12px/1.4 monospace; padding: 10px; border-radius: 12px; border: 1px solid var(--border2); background: var(--surface2); color: var(--text); }
+
+/* ===================== v2.4: profiles + tracker ===================== */
+.avatar { width: 30px; height: 30px; border-radius: 50%; display: inline-grid; place-items: center; flex: none; background: var(--c); color: #0b1214; font: 800 14px/1 Figtree, sans-serif; box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 30%, transparent); }
+#profBtn { min-width: 36px; padding: 3px; }
+.profRow { justify-content: flex-start; gap: 10px; }
+.profRow small { opacity: .75; font-weight: 600; }
+.menuList .row input, .profEdit input { flex: 1; min-width: 0; font: inherit; padding: 9px 12px; border-radius: 12px; border: 1px solid var(--border2); background: var(--surface2); color: var(--text); }
+.profEdit { display: flex; align-items: center; gap: 10px; }
+.progCard { background: linear-gradient(140deg, color-mix(in srgb, var(--accent) 13%, var(--surface)), var(--surface) 65%); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); border-radius: 22px; padding: 16px; margin: 4px 0 14px; display: flex; flex-direction: column; gap: 12px; }
+.progTop { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; }
+.progBig { font-family: "Bricolage Grotesque", sans-serif; line-height: 1; }
+.progBig b { font-size: 46px; color: var(--accent); font-weight: 800; }
+.progBig span { font-size: 22px; color: var(--dim); font-weight: 700; }
+.progRight { text-align: right; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
+.newBest { color: var(--k-gold); font-weight: 800; display: inline-flex; align-items: center; gap: 4px; justify-content: flex-end; }
+.monthBar { display: grid; grid-template-columns: repeat(31, 1fr); gap: 2px; }
+.monthBar i { height: 8px; border-radius: 3px; background: var(--surface2); box-shadow: inset 0 0 0 1px var(--border); }
+.monthBar i.p { background: color-mix(in srgb, var(--accent) 55%, var(--surface2)); box-shadow: none; }
+.monthBar i.l { background: var(--accent); box-shadow: none; }
+.monthBar i.f { opacity: .35; }
+.weekRow { display: flex; align-items: center; gap: 6px; }
+.wd { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; max-width: 40px; }
+.wd small { font-size: 11px; color: var(--muted); font-weight: 700; }
+.wd.today small { color: var(--accent); }
+.dot2 { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--border2); color: var(--bg); }
+.dot2.p { background: color-mix(in srgb, var(--accent) 55%, var(--surface2)); border-color: transparent; }
+.dot2.l { background: var(--accent); border-color: transparent; }
+.wd.today .dot2:not(.p):not(.l) { border-color: var(--accent); border-style: dashed; }
+.legend { margin-left: auto; display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--muted); }
+.legend span { display: flex; align-items: center; gap: 5px; }
+.legend .dot2 { width: 11px; height: 11px; border: 0; }
+.lastSong { display: flex; align-items: center; gap: 12px; text-align: left; border: 1px solid var(--border); background: var(--surface2); border-radius: 16px; padding: 10px 14px; color: var(--text); font: inherit; }
+.lastSong .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.lastSong small { color: var(--muted); font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.lastSong b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lastSong .pct { color: var(--accent); font-size: 18px; }
+.hbar { height: 7px; border-radius: 7px; background: color-mix(in srgb, var(--accent) 15%, transparent); overflow: hidden; margin-top: 3px; }
+.hbar i { display: block; height: 100%; border-radius: 7px; background: var(--accent); }
+@media (max-width: 430px) { .top:has(.instSwitch:not([hidden])) h1 { display: none; } .top:has(.instSwitch:not([hidden])) .instSwitch { margin-left: 0; } .top:has(.instSwitch:not([hidden])) .syncDot { margin-left: auto; } }

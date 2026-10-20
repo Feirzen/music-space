@@ -29,19 +29,21 @@ VIEWS.path = {
     const work = markedChords("work");
     const doneN = Object.keys(s.lessonsDone).filter(id => allLessons().some(l => l.id === id)).length;
     return `
-      <div class="stats"><span>${icon("sparkle", 16)} ${s.streak.count} day streak</span><span>${icon("star", 16)} ${s.xp.toLocaleString()} XP</span><span>${icon("mountains", 16)} ${doneN}/${allLessons().length} lessons</span></div>
+      ${progressCardHTML()}
+      <div class="stats"><span>${icon("mountains", 16)} ${doneN}/${allLessons().length} lessons</span><span>${icon("star", 16)} ${s.xp.toLocaleString()} XP</span></div>
       ${due.length || work.length ? `<button class="reviewCard" data-act="tool" data-tool="review">${icon("review", 26)}<div><b>Review · about 5 min</b><span>${due.length ? due.length + " song" + (due.length > 1 ? "s" : "") + " due" : ""}${due.length && work.length ? " · " : ""}${work.length ? work.length + " chord" + (work.length > 1 ? "s" : "") + " to drill" : ""}</span></div></button>` : ""}
       ${PATH.map((ch, i) => chapterHTML(ch, cur, i)).join("")}`;
   },
   mount(ctx) {
     const curEl = $(".node.current", ctx.root);
-    if (curEl && !ctx.data.scrolled) { ctx.data.scrolled = true; setTimeout(() => curEl.scrollIntoView({ block: "center", behavior: "smooth" }), 250); }
+    // the tracker card stays in view up top; only jump to your lesson when it's far down the trail
+    if (curEl && !ctx.data.scrolled && curEl.getBoundingClientRect().top > window.innerHeight * 2.2) { ctx.data.scrolled = true; setTimeout(() => curEl.scrollIntoView({ block: "center", behavior: "smooth" }), 250); }
   },
 };
 const CHAPTER_COLORS = ["", "var(--k-ember)", "var(--k-pink)", "var(--k-violet)", "var(--k-sky)", "var(--k-gold)"];
 function comingSoonHTML() {
   const w = INSTRUMENTS[INST()];
-  return `<div class="soon">${icon(w.icon, 40)}
+  return `${progressCardHTML()}<div class="soon">${icon(w.icon, 40)}
     <h2>${w.label} Path · coming soon!</h2>
     <p>${INST() === "voice" ? "Singing lessons are on the way. Your lyric sheets, markers, takes, pitch meter and range finder already work in voice mode." : `Lessons for ${w.word} are on the way. Your ${w.word} library, ${INST() === "uke" ? "tuner, " : ""}metronome and chord games already work in ${w.word} mode.`}</p>
     <div class="row wrap center"><button class="btn on" data-act="go" data-h="#/library">${icon("notes", 18)} ${w.label} library</button>
@@ -180,6 +182,7 @@ function completeLesson(l, ms, focus) {
   const bonus = first ? (l.boss ? 40 : l.side ? 10 : 20) : 0;
   App.state.lessonsDone[l.id] = App.state.lessonsDone[l.id] || today();
   if (Timer.t && Timer.t.lessonId === l.id) Timer.stop();
+  markDay(true);
   addXP(timeXP + bonus);
   AudioKit.sfx.done();
   App.toast(`+${timeXP + bonus} XP${ms ? " · " + fmtTime(ms) : ""}${first ? " · lesson complete" : ""}`);

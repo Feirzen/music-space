@@ -111,7 +111,27 @@ function mergeById(a = [], b = []) {
   [...b, ...a].forEach(x => m.set(x.id, newest(x, m.get(x.id))));
   return [...m.values()];
 }
+/* older devices sent one person's progress at the top level: that's the first profile's */
+function asV3(p) {
+  if (!p || p.byProfile) return p || {};
+  const per = {}; PER_PROFILE.forEach(k => { if (p[k] !== undefined) per[k] = p[k]; });
+  return { profiles: p.profiles, people: p.people, lists: p.lists, takes: p.takes, spotify: p.spotify, byProfile: { "p-naverog": per } };
+}
 function mergeProgress(a = {}, b = {}) {
+  a = asV3(a); b = asV3(b);
+  const out = { v: 3 };
+  out.profiles = mergeById(a.profiles, b.profiles);
+  out.people = mergeById(a.people, b.people);
+  out.lists = mergeById(a.lists, b.lists);
+  out.takes = {};
+  for (const src of [b.takes || {}, a.takes || {}]) for (const id in src) out.takes[id] = newest(src[id], out.takes[id]);
+  out.spotify = newest(a.spotify, b.spotify) || { clientId: "", playlistId: "", at: 0 };
+  out.byProfile = {};
+  const ids = new Set([...Object.keys(a.byProfile || {}), ...Object.keys(b.byProfile || {})]);
+  for (const id of ids) out.byProfile[id] = mergeProfileData((a.byProfile || {})[id] || {}, (b.byProfile || {})[id] || {});
+  return out;
+}
+function mergeProfileData(a = {}, b = {}) {
   const out = {};
   out.xp = Math.max(a.xp || 0, b.xp || 0);
   const sa = a.streak || {}, sb = b.streak || {};
@@ -130,13 +150,11 @@ function mergeProgress(a = {}, b = {}) {
     const sessions = [...cur.sessions, ...(add.sessions || []).filter(x => !seen.has(x.d + "|" + x.score))].sort((x, y) => x.d < y.d ? -1 : 1).slice(-40);
     out.mastery[k] = { best: Math.max(cur.best || 0, add.best || 0), sessions };
   }
-  for (const k of ["vocals", "takes"]) {
-    out[k] = {};
-    for (const src of [b[k] || {}, a[k] || {}]) for (const id in src) out[k][id] = newest(src[id], out[k][id]);
-  }
-  out.spotify = newest(a.spotify, b.spotify) || { clientId: "", playlistId: "", at: 0 };
-  out.people = mergeById(a.people, b.people);
-  out.lists = mergeById(a.lists, b.lists);
+  out.vocals = {};
+  for (const src of [b.vocals || {}, a.vocals || {}]) for (const id in src) out.vocals[id] = newest(src[id], out.vocals[id]);
+  out.days = {};
+  for (const src of [b.days || {}, a.days || {}]) for (const d in src) { const c = out.days[d] || { p: 0, l: 0 }; out.days[d] = { p: Math.max(c.p || 0, src[d].p || 0), l: Math.max(c.l || 0, src[d].l || 0) }; }
+  out.lastSong = newest(a.lastSong, b.lastSong);
   return out;
 }
 function mergeSongs(a = {}, b = {}) {
