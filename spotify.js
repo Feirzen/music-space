@@ -108,7 +108,7 @@ const Spot = {
   async target() {
     const devs = await this.devices();
     const dev = this.pickDevice(devs);
-    if (!dev) { const e = new Error(`Waking up Spotify on this ${myDeviceType() === "Computer" ? "computer" : myDeviceType() === "Tablet" ? "iPad" : "phone"}…`); e.wake = true; e.devs = devs; throw e; }
+    if (!dev) { const e = new Error("Spotify isn't awake on this device"); e.wake = true; e.devs = devs; throw e; }
     return dev;
   },
   async play(song) {
@@ -221,25 +221,24 @@ ACT.spPlay = async (el, ctx) => {
     el.innerHTML = icon(SpotUI.playing ? "pause" : "play", 20);
     setTimeout(() => SpotUI.tick && SpotUI.tick(), 700);
   } catch (e) {
-    App.toast(e.message);
-    if (e.wake) wakeSpotify(song);
+    if (e.wake) wakeSpotify(song); else App.toast(e.message);
   }
 };
-/* Spotify on a phone only shows up as a device while its app is awake: open it, and when you come back, play here */
-function wakeSpotify(song) {
-  Spot.pending = { id: song.id, until: Date.now() + 90000 };
-  setTimeout(() => { location.href = "spotify:"; }, 500);
+/* iPhone Spotify drops off Spotify's device list whenever it's idle in the background, so the app
+   can't start it remotely. Instead: open the song itself in Spotify (one tap on play there), then
+   once it's playing, the buttons here take over for pause and skip. */
+async function wakeSpotify(song) {
+  let uri = null;
+  try { uri = await Spot.uriFor(song); } catch (e) {}
+  Spot.pending = { id: song.id, until: Date.now() + 5 * 60000 };
+  App.toast("Opening the song in Spotify. Tap play there, then come back");
+  setTimeout(() => { location.href = uri || "spotify:"; }, 600);
 }
-document.addEventListener("visibilitychange", async () => {
+document.addEventListener("visibilitychange", () => {
   const p = Spot.pending;
   if (document.visibilityState !== "visible" || !p || Date.now() > p.until) return;
   Spot.pending = null;
-  const song = getSong(p.id); if (!song) return;
-  for (let i = 0; i < 3; i++) {
-    try { await Spot.play(song); SpotUI.playing = true; setTimeout(() => SpotUI.tick && SpotUI.tick(), 700); App.toast("Playing on this device"); return; }
-    catch (e) { if (!e.wake) { App.toast(e.message); return; } await new Promise(r => setTimeout(r, 1500)); }
-  }
-  App.toast("Spotify didn't show up. Pick where to play from the device button.");
+  setTimeout(() => SpotUI.tick && SpotUI.tick(), 800);
 });
 ACT.spDevice = async () => {
   try {
