@@ -10,11 +10,8 @@ VIEWS.settings = {
     let tok = ""; try { tok = localStorage.getItem("ms.token") || ""; } catch (e) {}
     const sw = Object.entries(THEMES).map(([k, t]) => `<button class="swatch ${s.theme === k ? "on" : ""}" data-act="theme" data-k="${k}" style="background:${t.swatch}"><span>${t.label}</span></button>`).join("");
     return `
-      <div class="card"><b>Look</b><div class="swatches">${sw}</div>
-        ${s.theme === "chameleon" ? `<div class="row wrap"><button class="btn small" data-act="chamTone">${{ auto: "Any tone", light: "Light only", dark: "Dark only" }[s.chamTone]}</button>
-          <button class="btn small" data-act="chamLock">${icon(s.chamLock ? "lock" : "refresh", 14)} ${s.chamLock ? "Frozen" : "Changing"}</button>
-          <button class="btn small" data-act="chamRoll" ${s.chamLock ? "disabled" : ""}>New colors</button></div>
-          <p class="hint">Chameleon picks new colors each time you change screens. Freeze one you love.</p>` : ""}
+      <div class="card"><b>Look</b>
+        ${window.Kit ? `<p class="hint">Change looks from the gear up top: Campfire, Light, Sepia, or Chameleon.</p>` : `<div class="swatches">${sw}</div>`}
         <label class="check"><input type="checkbox" data-change="ambientToggle" ${s.ambient ? "checked" : ""}> Floating embers</label></div>
       <div class="card"><b>Sound</b>
         <label class="check"><input type="checkbox" data-change="soundToggle" ${s.sound.on ? "checked" : ""}> Sound effects</label>
@@ -76,11 +73,11 @@ async function boot() {
   $$(".tab").forEach(t => { t.querySelector(".tabIcon").innerHTML = icon(t.dataset.icon, 26); });
   $("nav.tabs").addEventListener("click", e => { const t = e.target.closest(".tab"); if (t) { AudioKit.sfx.tap(); Router.go("#/" + t.dataset.tab); } });
   $("#backBtn").addEventListener("click", () => Router.back());
-  $("#gear").addEventListener("click", () => Router.go("#/settings"));
+  $("#gear").addEventListener("click", () => { if (!window.Kit) Router.go("#/settings"); });
   $("#sheetClose").addEventListener("click", () => Sheet.close());
   $("#timerPill").addEventListener("click", e => Router.go(e.currentTarget.dataset.h));
   document.addEventListener("keydown", e => { if (e.key === "Escape") { if (!$("#modal").hidden) Modal.close(); else if (Sheet.ctx) Sheet.close(); } });
-  window.addEventListener("hashchange", () => { if (Sheet.ctx) Sheet.close(); Modal.close(); rollChameleon(); Router.render(); window.scrollTo(0, 0); });
+  window.addEventListener("hashchange", () => { if (Sheet.ctx) Sheet.close(); Modal.close(); if (!window.Kit) rollChameleon(); Router.render(); window.scrollTo(0, 0); });
   Router.render();
   Ambient.on = App.state.ambient; Ambient.init();
   App.setSyncStatus(GH.ready() ? "ok" : "off");
@@ -93,3 +90,25 @@ async function boot() {
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") Sync.run(true); });
 }
 boot();
+
+/* Shared kit (Feirzen/flag-hub): this app's gear rolls out the shared tray.
+   Music Space keeps painting its own looks; the kit is just the controls.
+   Keep the kit <script> tag at the bottom of index.html. */
+window.KitConfig = {
+  gear: "#gear",
+  look: {
+    labels: { dark: "Campfire" },
+    get: () => ({ theme: { midnight: "dark", paper: "light", sepia: "sepia", chameleon: "chameleon" }[App.state.theme] || "dark",
+      tone: App.state.chamTone === "auto" ? "any" : App.state.chamTone, locked: !!App.state.chamLock }),
+    set: t => { App.state.theme = { dark: "midnight", light: "paper", sepia: "sepia", chameleon: "chameleon" }[t] || "midnight"; App.state.chamLock = null; applyTheme(); App.save(true); },
+    tone: t => { const was = !!App.state.chamLock; App.state.chamTone = t === "any" ? "auto" : t; paintChameleon(makeChameleon()); if (was) lockChameleon(); App.save(true); },
+    lock: on => { if (on) lockChameleon(); else App.state.chamLock = null; App.save(true); },
+    reroll: () => paintChameleon(makeChameleon()),
+  },
+  tray: [{
+    id: "sound", label: "Sound", icon: icon("speaker", 18),
+    slider: { min: 0, max: 1, step: 0.05, get: () => App.state.sound.vol, set: v => { App.state.sound.vol = v; AudioKit.setSound(App.state.sound.on, v); App.save(true); } },
+    toggle: { label: "Sound effects", get: () => App.state.sound.on, set: on => { App.state.sound.on = on; AudioKit.setSound(on, App.state.sound.vol); App.save(true); } },
+  }],
+  more: () => Router.go("#/settings"),
+};
