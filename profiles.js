@@ -84,7 +84,7 @@ function progressCardHTML() {
     : st.best ? `<span class="muted">Best: ${st.best.n} days in ${MONTHS[+st.best.m.slice(5) - 1]}</span>` : `<span class="muted">Your first month. Every day counts.</span>`;
   return `<div class="progCard">
     <div class="progTop">
-      <div><div class="progBig"><b>${st.count}</b><span>/${st.elapsed}</span></div><div class="muted">days practiced this ${st.month}</div></div>
+      <div class="progHead"><div class="progBig"><b>${st.count}</b><span>/${st.elapsed}</span></div><div class="muted progLbl">days practiced<br>this ${st.month}</div></div>
       <div class="progRight">${bestTxt}<div class="hint">${App.profile().name} · ${App.state.xp.toLocaleString()} XP</div></div>
     </div>
     <div class="monthBar" aria-hidden="true">${[...Array(st.inMonth)].map((_, i) => { const k = today().slice(0, 8) + String(i + 1).padStart(2, "0"); const v = days[k]; return `<i class="${v && v.l ? "l" : v && v.p ? "p" : i + 1 > st.elapsed ? "f" : ""}"></i>`; }).join("")}</div>
