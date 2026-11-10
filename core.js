@@ -96,11 +96,11 @@ const DEFAULT_STATE = () => ({
   sync: { owner: "Feirzen", repo: "music-space-private", lastSync: 0 },
   instrument: "guitar",
   vocals: {}, takes: {}, spotify: { clientId: "", playlistId: "", at: 0 }, spCache: {},
-  days: {}, lastSong: null,
+  days: {}, lastSong: null, campfire: {}, chordStars: {}, pathMode: "campfire",
   profiles: [{ id: "p-naverog", name: "Naverog", color: "#5fd3b5", at: 1 }], byProfile: {}, activeProfile: null,
 });
 /* progress that belongs to one person. Everything else (songs, singers, lists, takes, Spotify) is shared */
-const PER_PROFILE = ["xp", "streak", "lessonsDone", "goalSkips", "lessonDays", "mastery", "chordMarks", "best", "songPrefs", "vocals", "days", "lastSong"];
+const PER_PROFILE = ["xp", "streak", "lessonsDone", "goalSkips", "lessonDays", "mastery", "chordMarks", "best", "songPrefs", "vocals", "days", "lastSong", "campfire", "chordStars"];
 const blankProfileData = () => { const d = DEFAULT_STATE(); return Object.fromEntries(PER_PROFILE.map(k => [k, d[k]])); };
 const pickProfileData = st => Object.fromEntries(PER_PROFILE.map(k => [k, st[k]]));
 const deviceProfile = () => { try { return localStorage.getItem("ms.profile") || ""; } catch (e) { return ""; } };
@@ -523,12 +523,15 @@ function openChord(c) {
   const sh = T.chordShape(c);
   Modal.open(`<div class="chordPop">
     <div class="bigName">${esc(c)}</div>${chordSVG(c, 2)}
+    ${INST() === "guitar" && window.CF && CF_CHORDS.includes(c) ? `<div class="popLv">${pips(CF.level(c))}<span>Campfire level ${CF.level(c)} of ${CF_MAX}</span></div>` : ""}
     ${sh && sh.simplified ? `<p class="hint">Simplified shape, close enough for campfire.</p>` : ""}
     <div class="row center wrap">
       <button class="btn" data-act="hear" data-c="${esc(c)}">${icon("speaker", 18)} Hear it</button>
       <button class="btn ${markOf(c) === "solid" ? "on" : ""}" data-act="markChord" data-c="${esc(c)}" data-m="solid">${icon("check", 18)} Solid</button>
       <button class="btn ${markOf(c) === "work" ? "warn on" : ""}" data-act="markChord" data-c="${esc(c)}" data-m="work">Needs work</button>
+      ${INST() === "guitar" && window.isStar ? `<button class="btn ${isStar(c) ? "starOn" : ""}" data-act="starChord" data-c="${esc(c)}" aria-pressed="${isStar(c)}">${icon("star", 18)} ${isStar(c) ? "Starred" : "Star"}</button>` : ""}
     </div>
+    ${INST() === "guitar" && window.CF && CF_CHORDS.includes(c) ? `<button class="btn on full" data-act="go" data-h="#/land/${encodeURIComponent(c)}">${icon("bolt", 18)} Land It on ${esc(c)}</button>` : ""}
     ${INST() === "guitar" ? `<details><summary>Fingerpick tab</summary><pre>${esc(T.patternTab(c, "arp44") || "")}</pre></details>` : ""}
     <button class="btn ghost full" data-act="closeModal">Close</button></div>`);
   AudioKit.strum(c);
@@ -554,13 +557,14 @@ const Timer = {
   elapsed() { const t = this.t; if (!t) return 0; return t.accum + (t.since ? Date.now() - t.since : 0); },
   running() { return !!(this.t && this.t.since); },
   pause(at) { const t = this.t; if (!t || !t.since) return; t.accum += Math.max(0, (at || Date.now()) - t.since); t.since = null; App.save(true); TimerUI.paint(); },
-  resume() { const t = this.t; if (!t || t.since) return; t.since = Date.now(); t.lastActive = Date.now(); App.save(true); TimerUI.paint(); },
+  resume() { const t = this.t; if (!t || t.since) return; if (t.capped) return App.toast("Stopped at 15 minutes. Wrap up for today."); t.since = Date.now(); t.lastActive = Date.now(); App.save(true); TimerUI.paint(); },
   ping() { if (this.t) { this.t.lastActive = Date.now(); if (!this.t.since && this.t.autoPaused) { this.t.autoPaused = false; this.resume(); } } },
   stop() { const ms = this.elapsed(); App.state.timer = null; App.save(true); TimerUI.paint(); return ms; },
   tick() {
     const t = this.t;
     if (!t || !t.since) return;
     if (Date.now() - t.lastActive > IDLE_MS) { this.pause(t.lastActive + 30000); t.autoPaused = true; App.toast("Lesson timer paused while you were away"); }
+    if (String(t.lessonId).startsWith("cf") && window.CF) return CF.tickCap(t);
     const mins = this.elapsed() / 60000;
     if (mins >= 20 && !t.nudged) { t.nudged = true; App.toast("20 minutes in. Wrap it up soon to keep it fun."); }
   },
@@ -569,14 +573,15 @@ const Timer = {
 document.addEventListener("visibilitychange", () => { if (document.hidden && Timer.running()) { Timer.pause(); Timer.t.autoPaused = true; } });
 const fmtTime = ms => { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
 const TimerUI = {
-  paint() { this.paintPill(); const b = $("#timerBar"); if (b && Router.ctx && Router.ctx.name === "lesson") renderCtx(Router.ctx); },
+  paint() { this.paintPill(); const b = $("#timerBar"); if (b && Router.ctx && ["lesson", "cflesson"].includes(Router.ctx.name)) renderCtx(Router.ctx); },
   paintPill() {
     const pill = $("#timerPill"), t = Timer.t;
-    const onLessonPage = Router.cur.name === "lesson" && t && Router.cur.arg === t.lessonId;
+    const onLessonPage = ["lesson", "cflesson"].includes(Router.cur.name) && t && Router.cur.arg === t.lessonId;
     if (!t || onLessonPage) { pill.hidden = true; return; }
     pill.hidden = false;
     pill.innerHTML = `${icon(Timer.running() ? "timer" : "pause", 16)}<b>${fmtTime(Timer.elapsed())}</b><span>${Timer.running() ? "Lesson" : "Paused"}</span>`;
-    pill.dataset.h = "#/lesson/" + t.lessonId;
+    pill.dataset.h = (String(t.lessonId).startsWith("cf") ? "#/cflesson/" : "#/lesson/") + t.lessonId;
+    pill.classList.toggle("over", Timer.elapsed() > 600000 && String(t.lessonId).startsWith("cf"));
   },
 };
 setInterval(() => {

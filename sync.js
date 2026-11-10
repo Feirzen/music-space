@@ -155,6 +155,35 @@ function mergeProfileData(a = {}, b = {}) {
   out.days = {};
   for (const src of [b.days || {}, a.days || {}]) for (const d in src) { const c = out.days[d] || { p: 0, l: 0 }; out.days[d] = { p: Math.max(c.p || 0, src[d].p || 0), l: Math.max(c.l || 0, src[d].l || 0) }; }
   out.lastSong = newest(a.lastSong, b.lastSong);
+  out.campfire = mergeCampfire(a.campfire, b.campfire);
+  out.chordStars = {};
+  for (const src of [b.chordStars || {}, a.chordStars || {}]) for (const k in src) out.chordStars[k] = newest(src[k], out.chordStars[k]);
+  return out;
+}
+/* campfire progress: lessons and steps add up, chord levels keep the higher one, practice minutes keep the bigger day */
+function mergeCampfire(a = {}, b = {}) {
+  a = a || {}; b = b || {};
+  const out = {};
+  for (const k of ["done", "steps", "passes"]) out[k] = { ...(b[k] || {}), ...(a[k] || {}) };
+  out.plan = { ...(b.plan || {}), ...(a.plan || {}) };
+  out.lvl = {};
+  for (const src of [b.lvl || {}, a.lvl || {}]) for (const c in src) {
+    const x = src[c], cur = out.lvl[c];
+    if (!cur) { out.lvl[c] = x; continue; }
+    const seen = new Set((cur.hist || []).map(h => h.d + h.lv + h.miss));
+    const hist = [...(cur.hist || []), ...(x.hist || []).filter(h => !seen.has(h.d + h.lv + h.miss))].slice(-30);
+    out.lvl[c] = { l: Math.max(cur.l || 0, x.l || 0), at: Math.max(cur.at || 0, x.at || 0), hist };
+  }
+  out.from = {};
+  for (const src of [b.from || {}, a.from || {}]) for (const c in src) { out.from[c] = out.from[c] || {}; for (const f in src[c]) out.from[c][f] = Math.max(out.from[c][f] || 0, src[c][f]); }
+  out.pat = {};
+  for (const src of [b.pat || {}, a.pat || {}]) for (const p in src) { const cur = out.pat[p]; out.pat[p] = !cur ? src[p] : { best: Math.max(cur.best || 0, src[p].best || 0), at: Math.max(cur.at || 0, src[p].at || 0) }; }
+  out.days = {};
+  for (const src of [b.days || {}, a.days || {}]) for (const d in src) { const cur = out.days[d] || { ms: 0, n: 0 }; out.days[d] = { ms: Math.max(cur.ms || 0, src[d].ms || 0), n: Math.max(cur.n || 0, src[d].n || 0) }; }
+  const starts = [a.start, b.start].filter(Boolean).sort();
+  if (starts.length) out.start = starts[0];
+  out.sum = newest(a.sum, b.sum);
+  out.at = Math.max(a.at || 0, b.at || 0);
   return out;
 }
 function mergeSongs(a = {}, b = {}) {

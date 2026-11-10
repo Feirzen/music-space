@@ -25,16 +25,18 @@ VIEWS.path = {
   title: () => "Path",
   html() {
     if (INST() !== "guitar") return comingSoonHTML();
+    if (App.state.pathMode !== "classic" && window.CF) return pathModeToggle() + campfireHomeHTML();
     const s = App.state, cur = currentLesson(), due = reviewDue();
     const work = markedChords("work");
     const doneN = Object.keys(s.lessonsDone).filter(id => allLessons().some(l => l.id === id)).length;
-    return `
+    return `${window.CF ? pathModeToggle() : ""}
       ${progressCardHTML()}
       <div class="stats"><span>${icon("mountains", 16)} ${doneN}/${allLessons().length} lessons</span><span>${icon("star", 16)} ${s.xp.toLocaleString()} XP</span></div>
       ${due.length || work.length ? `<button class="reviewCard" data-act="tool" data-tool="review">${icon("review", 26)}<div><b>Review · about 5 min</b><span>${due.length ? due.length + " song" + (due.length > 1 ? "s" : "") + " due" : ""}${due.length && work.length ? " · " : ""}${work.length ? work.length + " chord" + (work.length > 1 ? "s" : "") + " to drill" : ""}</span></div></button>` : ""}
       ${PATH.map((ch, i) => chapterHTML(ch, cur, i)).join("")}`;
   },
   mount(ctx) {
+    $$(".cfPct b[data-count]", ctx.root).forEach(countUp);
     const curEl = $(".node.current", ctx.root);
     // the tracker card stays in view up top; only jump to your lesson when it's far down the trail
     if (curEl && !ctx.data.scrolled && curEl.getBoundingClientRect().top > window.innerHeight * 2.2) { ctx.data.scrolled = true; setTimeout(() => curEl.scrollIntoView({ block: "center", behavior: "smooth" }), 250); }

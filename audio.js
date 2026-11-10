@@ -233,4 +233,6 @@ function matchChord(chroma, candidates) {
   return { best, margin: best && second ? best.score - second.score : best ? best.score : 0 };
 }
 
-window.AudioKit = { ctx, setSound, Sound, pluck, pianoNote, strum, sfx, playTone, mtof, Metro, METRO_SOUNDS, Mic, freqToMidi, detectPitch, matchChord };
+/* muted strum "chuck" for the Island Chuck pattern */
+const chuck = (when = 0) => { noiseBurst({ when, dur: 0.06, freq: 900, q: 1.2, gain: 0.5 }); noiseBurst({ when, dur: 0.03, type: "highpass", freq: 3500, q: 1, gain: 0.12 }); };
+window.AudioKit = { ctx, setSound, Sound, pluck, pianoNote, strum, sfx, playTone, mtof, Metro, METRO_SOUNDS, Mic, freqToMidi, detectPitch, matchChord, noiseBurst, chuck };

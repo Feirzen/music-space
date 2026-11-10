@@ -623,3 +623,153 @@ html[data-theme="sepia"][data-inst="voice"] { --accent:#f0c27a; }
 .hbar { height: 7px; border-radius: 7px; background: color-mix(in srgb, var(--accent) 15%, transparent); overflow: hidden; margin-top: 3px; }
 .hbar i { display: block; height: 100%; border-radius: 7px; background: var(--accent); }
 @media (max-width: 430px) { .top:has(.instSwitch:not([hidden])) h1 { display: none; } .top:has(.instSwitch:not([hidden])) .instSwitch { margin-left: 0; } .top:has(.instSwitch:not([hidden])) .syncDot { margin-left: auto; } }
+
+/* ===================== v2.5: Campfire path ===================== */
+.pathMode { display: flex; justify-content: flex-end; margin: 2px 0 8px; }
+.pathMode .seg { width: auto; }
+.pathMode .seg button { flex: none; padding: 5px 12px; }
+.pips { display: inline-flex; gap: 3px; align-items: center; vertical-align: middle; }
+.pips i { width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--text) 16%, transparent); transition: background .3s, box-shadow .3s; }
+.pips i.on { background: var(--k-ember); box-shadow: 0 0 6px color-mix(in srgb, var(--k-ember) 70%, transparent); }
+.pips.big i { width: 12px; height: 12px; }
+.ic.inl { display: inline-block; vertical-align: -2px; }
+
+.cfHero { position: relative; overflow: hidden; border-radius: 26px; padding: 18px 18px 14px; margin: 0 0 12px;
+  background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--k-ember) 22%, transparent), transparent 60%),
+              radial-gradient(90% 80% at 100% 100%, color-mix(in srgb, var(--k-gold) 12%, transparent), transparent 60%),
+              color-mix(in srgb, var(--surface) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--k-ember) 35%, var(--border));
+  box-shadow: 0 18px 40px -26px color-mix(in srgb, var(--k-ember) 60%, transparent), inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); animation: rise .5s ease-out both; }
+.cfHeroTop { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.cfPct { font-family: "Bricolage Grotesque", sans-serif; line-height: .95; margin-top: 2px; }
+.cfPct b { font-size: 64px; font-weight: 800; background: linear-gradient(180deg, var(--k-gold), var(--k-ember)); -webkit-background-clip: text; background-clip: text; color: transparent; font-variant-numeric: tabular-nums; }
+.cfPct span { font-size: 26px; font-weight: 800; color: var(--k-ember); margin-left: 2px; }
+.cfHeroSide { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; font-size: 13px; color: var(--dim); text-align: right; padding-bottom: 6px; }
+.cfBar { position: relative; height: 22px; border-radius: 99px; margin: 14px 0 10px; overflow: hidden;
+  background: color-mix(in srgb, var(--text) 8%, transparent); box-shadow: inset 0 1px 3px rgba(0,0,0,.3); }
+.cfBar i { position: absolute; inset: 0 auto 0 0; width: var(--w); border-radius: 99px; overflow: hidden;
+  background: linear-gradient(90deg, var(--k-ember), var(--k-gold)); box-shadow: 0 0 18px color-mix(in srgb, var(--k-ember) 60%, transparent);
+  animation: barGrow 1.1s cubic-bezier(.2,.8,.2,1) both; }
+.cfBar i::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.35) 45%, transparent 70%); transform: translateX(-100%); animation: shimmer 3.6s ease-in-out 1.2s infinite; }
+.cfBar em { position: absolute; top: 5px; bottom: 5px; width: 1px; background: color-mix(in srgb, var(--text) 18%, transparent); }
+.cfBar.small { height: 10px; margin: 0; flex: 1; }
+@keyframes barGrow { from { width: 0; } }
+@keyframes shimmer { 0% { transform: translateX(-100%); } 55%, 100% { transform: translateX(220%); } }
+
+.cfWeek { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 20px; margin: 0 0 12px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent); border: 1px solid var(--border); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: rise .5s .06s ease-out both; }
+.wkDots { display: flex; gap: 8px; }
+.wkDot { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: 2px dashed var(--border2); color: var(--bg); transition: all .35s; }
+.wkDot.on { border: 0; background: radial-gradient(circle at 35% 30%, var(--k-gold), var(--k-ember)); box-shadow: 0 0 14px -2px var(--k-ember); }
+.wkDots.big { justify-content: center; margin: 4px 0 10px; }
+.wkDots.big .wkDot { width: 48px; height: 48px; }
+.wkDot.pop { animation: pop .6s cubic-bezier(.3,1.6,.5,1) .15s both; }
+@keyframes pop { from { transform: scale(.3); opacity: 0; } }
+.wkText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wkText span { font-size: 13px; color: var(--muted); }
+
+.upNext { border-radius: 24px; padding: 18px; margin: 0 0 12px; border: 1px solid color-mix(in srgb, var(--bc) 45%, var(--border));
+  background: linear-gradient(150deg, color-mix(in srgb, var(--bc) 16%, var(--surface)), var(--surface) 70%); animation: rise .5s .12s ease-out both; }
+.upNext h2 { margin: 6px 0 4px; font-size: 26px; line-height: 1.15; }
+.upNext .upMeta { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 14px; margin-bottom: 14px; }
+.upNext .btn.on { background: var(--bc); border-color: var(--bc); box-shadow: 0 8px 24px -10px var(--bc); }
+
+.cfChordGrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.cfChordGrid.big { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); margin-bottom: 14px; }
+.cfChord { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 4px 9px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface2); transition: transform .15s, border-color .2s; }
+.cfChord:active { transform: scale(.96); }
+.cfChord b { font-size: 17px; }
+.cfChord.later { opacity: .45; }
+.cfChord.max { border-color: color-mix(in srgb, var(--k-ember) 55%, var(--border)); background: color-mix(in srgb, var(--k-ember) 9%, var(--surface2)); }
+.cfSongs { display: flex; flex-direction: column; gap: 6px; max-height: 330px; overflow-y: auto; }
+.cfSong { display: flex; align-items: center; gap: 10px; text-align: left; padding: 6px 10px 6px 6px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface2); }
+.cfSong span { display: flex; flex-direction: column; min-width: 0; }
+.cfSong b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cfSong small { color: var(--muted); font-size: 12.5px; }
+
+.cfBlocks { display: flex; flex-direction: column; gap: 10px; margin: 16px 0 30px; }
+.cfBlock { border-radius: 20px; border: 1px solid var(--border); background: var(--surface); padding: 4px 14px; transition: border-color .3s; }
+.cfBlock[open] { border-color: color-mix(in srgb, var(--bc) 45%, var(--border)); padding-bottom: 12px; }
+.cfBlock.locked { opacity: .55; }
+.cfBlock summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; }
+.cfBlock summary::-webkit-details-marker { display: none; }
+.bNum { width: 34px; height: 34px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; flex: none; color: var(--bc); background: color-mix(in srgb, var(--bc) 15%, transparent); }
+.cfBlock.complete .bNum { background: var(--bc); color: var(--bg); }
+.bText { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.bText small { color: var(--muted); font-size: 12.5px; }
+.bCount { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bBar { height: 5px; border-radius: 5px; background: var(--surface2); overflow: hidden; margin: 8px 0 10px; }
+.bBar i { display: block; height: 100%; background: var(--bc); border-radius: 5px; transition: width .6s; }
+.lessonList { display: flex; flex-direction: column; gap: 4px; }
+.lRow { display: flex; align-items: center; gap: 10px; text-align: left; padding: 8px 8px; border-radius: 12px; border: 1px solid transparent; background: none; }
+.lRow:hover { background: var(--surface2); }
+.lRow.cur { border-color: color-mix(in srgb, var(--bc) 50%, transparent); background: color-mix(in srgb, var(--bc) 9%, transparent); }
+.lRow.lock { opacity: .5; }
+.lChk { width: 26px; height: 26px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 12px; font-weight: 800; border: 2px solid var(--border2); color: var(--muted); }
+.lRow.done .lChk { background: var(--bc); border-color: var(--bc); color: var(--bg); }
+.lRow.cur .lChk { border-color: var(--bc); color: var(--bc); }
+.lT { flex: 1; min-width: 0; }
+.lRow.done .lT { color: var(--dim); }
+
+.cfTimer .tRing { --p: 0; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex: none; color: var(--k-ember);
+  background: conic-gradient(var(--k-ember) calc(var(--p) * 1%), color-mix(in srgb, var(--text) 10%, transparent) 0); position: relative; }
+.cfTimer .tRing::before { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--surface); }
+.cfTimer .tRing .ic { position: relative; }
+.cfTimer.over { border-color: var(--k-gold); box-shadow: 0 0 22px -10px var(--k-gold); }
+.cfTimer.over .tRing { color: var(--k-gold); background: conic-gradient(var(--k-gold) 100%, transparent 0); }
+.cfTimeNote { font-size: 13px; }
+.timerPill.over { border-color: var(--k-gold); color: var(--k-gold); }
+
+.patGrid { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 5px; margin: 8px 0; }
+.pSlot { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 5px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); transition: background .08s, transform .08s, box-shadow .12s; }
+.pSlot span { height: 24px; display: grid; place-items: center; color: var(--text); }
+.pSlot span b { font-size: 18px; }
+.pSlot span i { font-style: normal; color: var(--muted); font-size: 20px; }
+.pSlot small { font-size: 11px; color: var(--muted); font-weight: 700; }
+.pSlot.acc { border-color: color-mix(in srgb, var(--k-ember) 50%, var(--border)); }
+.pSlot.acc span { color: var(--k-ember); }
+.pSlot.sX span { color: var(--k-sky); }
+.pSlot.sB span { color: var(--k-violet); }
+.pSlot.miss { opacity: .55; }
+.patGrid.punk .pSlot span { color: var(--k-coral); }
+.patGrid.live .pSlot.now { background: color-mix(in srgb, var(--k-ember) 26%, var(--surface2)); transform: translateY(-3px); box-shadow: 0 8px 18px -10px var(--k-ember); opacity: 1; }
+.barChords { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.barChords span { min-width: 54px; padding: 8px 10px; border-radius: 12px; text-align: center; font-weight: 800; font-size: 18px; background: var(--surface2); border: 1px solid var(--border); color: var(--chord); transition: all .15s; }
+.barChords span.on { background: color-mix(in srgb, var(--chord) 20%, var(--surface2)); border-color: var(--chord); transform: scale(1.08); }
+.stage .barChords span { font-size: 26px; min-width: 70px; }
+
+.landHead { display: flex; align-items: center; gap: 16px; }
+.landWhat { margin: 6px 0 0; }
+.landProg { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+.landProg i { width: 12px; height: 12px; border-radius: 50%; background: color-mix(in srgb, var(--text) 14%, transparent); transition: all .25s; }
+.landProg i.on { background: var(--k-ember); box-shadow: 0 0 10px var(--k-ember); }
+.bigChord.target { color: var(--k-ember); text-shadow: 0 0 40px color-mix(in srgb, var(--k-ember) 70%, transparent); animation: land .3s ease-out; }
+@keyframes land { from { transform: scale(.88); } }
+.cfQ { margin: 0; font-size: 26px; }
+.rateGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 420px; }
+.lvUp { animation: pop .6s cubic-bezier(.3,1.6,.5,1) both; }
+.lvUp .pips i { width: 20px; height: 20px; }
+
+.cfSet { display: flex; flex-direction: column; gap: 8px; }
+.setNum { width: 34px !important; height: 34px; flex: none !important; border-radius: 50%; display: grid !important; place-items: center; font-weight: 800; background: color-mix(in srgb, var(--k-ember) 18%, transparent); color: var(--k-ember); }
+.cfDone { text-align: center; display: flex; flex-direction: column; gap: 8px; }
+.cfDone h3 { margin: 0; }
+.cfDone p { margin: 0; }
+.cfMini { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--dim); margin: 6px 0; }
+.cfMini b { color: var(--k-ember); }
+.popLv { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: var(--dim); }
+.btn.starOn { color: var(--k-gold); border-color: var(--k-gold); }
+.starMk { position: absolute; top: 6px; left: 7px; color: var(--k-gold); }
+.starMk .ic { fill: currentColor; }
+.chordCard .pips { margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  .cfHero, .cfWeek, .upNext, .cfBar i, .wkDot.pop, .lvUp { animation: none !important; }
+  .cfBar i::after { display: none; }
+}
+@media (max-width: 380px) { .cfChordGrid { grid-template-columns: repeat(4, 1fr); } .cfPct b { font-size: 54px; } }
+.tool > .patGrid:first-child { margin-top: 14px; }
+.cfSong { padding: 10px 12px; }
+.cfSong .grow { flex: 1; }
+.cfSong > .ic { color: var(--muted); }
+.pctTag { font-style: normal; font-size: 12px; font-weight: 800; color: var(--k-ember); padding: 2px 8px; border-radius: 99px; background: color-mix(in srgb, var(--k-ember) 14%, transparent); }

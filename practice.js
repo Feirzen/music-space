@@ -12,12 +12,13 @@ VIEWS.practice = {
       ["tuner", "tuner", "Tuner", INST() === "uke" ? "Tunes G C E A through the mic." : "Listens through the mic. Works offline.", "var(--accent)"],
       ["metro", "metronome", "Metronome", "Steady time with a few sounds to pick from.", "#ffb06a"],
       ["chords", "chord", "Chord library", "Every chord, filtered your way.", "#8fb8ff"],
+      ["land", "sparkle", "Land It", "Land on any chord from anything. Your campfire levels.", "#ffb06a"],
       ["flash", "bolt", "Chord Flash", "Switch on the beat. Don't stop strumming.", "#ffd166"],
       ["rush", "mic", "Chord Rush", "The mic counts your clean changes.", "#ff8fa3"],
       ["quiz", "cards", "Name That Shape", "Quick quiz on the chords you pick.", "#c9a7ff"],
       ["range", "wave", "Range finder", "Measure anyone's singing range.", "#7fe9cd"],
       ["takes", "rec", "Takes", "Every recording you've made, by song.", "#ff8f7a"],
-    ].filter(t => !(INST() === "piano" && t[0] === "tuner") && !(INST() === "voice" && ["chords", "flash", "rush", "quiz"].includes(t[0])))
+    ].filter(t => !(INST() === "piano" && t[0] === "tuner") && !(INST() === "voice" && ["chords", "flash", "rush", "quiz"].includes(t[0])) && !(INST() !== "guitar" && t[0] === "land"))
      .map(t => INST() === "voice" && t[0] === "tuner" ? ["tuner", "tuner", "Pitch", "Sing a note and see exactly where you are.", t[4]] : t);
     const work = markedChords("work");
     return `<div class="tiles">${tiles.map(([h, ic, t, d, c]) => `<button class="tile" data-act="go" data-h="#/${h}" style="--tc:${c}">
@@ -131,23 +132,26 @@ ACT.tap = (el, ctx) => {
 VIEWS.chords = {
   title: () => "Chord library",
   html(ctx) {
-    const d = ctx.data; d.root = d.root ?? "all"; d.type = d.type ?? "all"; d.extra = d.extra || "";
+    const d = ctx.data; d.root = d.root ?? "all"; d.type = d.type ?? "all"; d.extra = d.extra ?? (INST() === "guitar" && window.isStar ? "star" : "");
     let list = T.allChords();
     if (d.root !== "all") list = list.filter(c => c.root === +d.root);
     if (d.type !== "all") list = list.filter(c => c.type === d.type);
     if (d.extra === "open") list = list.filter(c => c.open);
     if (d.extra === "work") list = list.filter(c => markOf(c.name) === "work");
     if (d.extra === "solid") list = list.filter(c => markOf(c.name) === "solid");
+    const starOn = INST() === "guitar" && window.isStar;
+    if (d.extra === "star" && starOn) { list = list.filter(c => isStar(c.name)); const ord = n => { const i = CF_CHORDS.indexOf(n); return i < 0 ? 99 : i; }; list.sort((a, b) => ord(a.name) - ord(b.name)); }
     const rootChip = (v, l) => `<button class="chip ${String(d.root) === String(v) ? "on" : ""}" data-act="chordFilter" data-f="root" data-v="${v}">${l}</button>`;
     const typeChip = (v, l) => `<button class="chip ${d.type === v ? "on" : ""}" data-act="chordFilter" data-f="type" data-v="${v}">${l}</button>`;
     const exChip = (v, l) => `<button class="chip ${d.extra === v ? "on" : ""}" data-act="chordFilter" data-f="extra" data-v="${v}">${l}</button>`;
     return `<div class="filterBlock">
         <div class="chips scroll">${rootChip("all", "All roots")}${T.SHARPS.map((r, i) => rootChip(i, ["A#","D#","G#"].includes(r) ? T.FLATS[i] : r)).join("")}</div>
         <div class="chips scroll">${typeChip("all", "All types")}${T.TYPES.map(t => typeChip(t.q, t.label)).join("")}</div>
-        <div class="chips">${exChip("", "Everything")}${exChip("open", INST() === "piano" ? "White keys only" : "Open shapes")}${exChip("work", "Needs work")}${exChip("solid", "Solid")}</div>
+        <div class="chips">${starOn ? exChip("star", icon("star", 13) + " Starred") : ""}${exChip("", "Everything")}${exChip("open", INST() === "piano" ? "White keys only" : "Open shapes")}${exChip("work", "Needs work")}${exChip("solid", "Solid")}</div>
       </div>
       <div class="libCount muted">${list.length} chords</div>
-      <div class="chordGrid">${list.map(c => `<button class="chordCard" data-act="chord" data-c="${esc(c.name)}">${markDot(c.name)}${chordSVG(c.name, 0.95)}<b>${esc(c.name)}</b></button>`).join("") || `<p class="empty">No chords match.</p>`}</div>`;
+      ${d.extra === "star" && starOn ? `<p class="hint">Your campfire chords are starred. Tap any chord, then Star, to add your own.</p>` : ""}
+      <div class="chordGrid">${list.map(c => `<button class="chordCard" data-act="chord" data-c="${esc(c.name)}">${markDot(c.name)}${starOn && isStar(c.name) ? `<span class="starMk">${icon("star", 12)}</span>` : ""}${chordSVG(c.name, 0.95)}<b>${esc(c.name)}</b>${starOn && CF_CHORDS.includes(c.name) ? pips(CF.level(c.name)) : ""}</button>`).join("") || `<p class="empty">No chords match.</p>`}</div>`;
   },
 };
 ACT.chordFilter = (el, ctx) => { ctx.data[el.dataset.f] = el.dataset.v; AudioKit.sfx.tap(); renderCtx(ctx); };
