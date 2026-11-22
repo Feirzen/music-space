@@ -581,7 +581,7 @@ const TimerUI = {
     pill.hidden = false;
     pill.innerHTML = `${icon(Timer.running() ? "timer" : "pause", 16)}<b>${fmtTime(Timer.elapsed())}</b><span>${Timer.running() ? "Lesson" : "Paused"}</span>`;
     pill.dataset.h = (String(t.lessonId).startsWith("cf") ? "#/cflesson/" : "#/lesson/") + t.lessonId;
-    pill.classList.toggle("over", Timer.elapsed() > 600000 && String(t.lessonId).startsWith("cf"));
+    pill.classList.toggle("over", Timer.elapsed() > (t.lessonId === "cfquick" ? 300000 : 600000) && String(t.lessonId).startsWith("cf"));
   },
 };
 setInterval(() => {

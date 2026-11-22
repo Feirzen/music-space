@@ -673,6 +673,8 @@ html[data-theme="sepia"][data-inst="voice"] { --accent:#f0c27a; }
   background: linear-gradient(150deg, color-mix(in srgb, var(--bc) 16%, var(--surface)), var(--surface) 70%); animation: rise .5s .12s ease-out both; }
 .upNext h2 { margin: 6px 0 4px; font-size: 26px; line-height: 1.15; }
 .upNext .upMeta { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 14px; margin-bottom: 14px; }
+.upNext .cfQuick { margin-top: 8px; font-size: 15px; }
+.upNext.done .cfQuick { margin-top: 4px; }
 .upNext .btn.on { background: var(--bc); border-color: var(--bc); box-shadow: 0 8px 24px -10px var(--bc); }
 
 .cfChordGrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }

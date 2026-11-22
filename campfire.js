@@ -73,6 +73,7 @@ const CF_BLOCKS = [
 ];
 
 /* ---------------- state ---------------- */
+const CF_QUICK = "cfquick";
 const CF = {
   st() {
     const s = App.state;
@@ -91,7 +92,18 @@ const CF = {
     })));
     return (this._ls = out);
   },
-  lesson(id) { return this.lessons().find(l => l.id === id); },
+  lesson(id) { return id === CF_QUICK ? this.quick() : this.lessons().find(l => l.id === id); },
+  /* "Short on time?": a 5-minute session on your two weakest chords; picked fresh each day, never a path lesson */
+  quick() {
+    const c = this.st(), d = today();
+    if (!c.quick || c.quick.day !== d) {
+      const a = this.weakest(this.known(), [], 0), b = this.weakest(this.known(), [a], 1);
+      Object.keys(c.steps).filter(k => k.startsWith(CF_QUICK + ":")).forEach(k => delete c.steps[k]);
+      c.quick = { day: d, chords: a === b ? [a] : [a, b] };
+    }
+    const bi = this.curBlock();
+    return { id: CF_QUICK, kind: "quick", title: "5-minute warm-up", num: 0, n: 0, bi, block: CF_BLOCKS[bi], chords: c.quick.chords };
+  },
   isDone(id) { return !!this.st().done[id]; },
   /* the next lesson to do: first one not done */
   next() { return this.lessons().find(l => !this.isDone(l.id)) || null; },
@@ -99,6 +111,7 @@ const CF = {
   blockOpen(bi) { return bi === 0 || this.blockDone(bi - 1) || CF_BLOCKS[bi].lessons.some((_, n) => this.isDone(`cf${bi + 1}-${n + 1}`)); },
   /* lessons open in order; a block's Campfire check is open as soon as the block is (it doubles as a test-out) */
   open(id) {
+    if (id === CF_QUICK) return true;
     const ls = this.lessons(), i = ls.findIndex(l => l.id === id);
     if (i < 0) return false;
     const l = ls[i];
@@ -237,6 +250,7 @@ CF.plan = l => {
   return p;
 };
 CF.steps = l => {
+  if (l.kind === "quick") return l.chords.map((ch, i) => ({ t: "land", chord: ch, md: i ? `Then ${ch}.` : `Your weakest chords today. Land on ${ch}.` }));
   const p = CF.plan(l), pat = CF_PATTERNS[l.pat], steps = [];
   const bpm = Math.min(pat.target + 5, pat.start + Math.round(l.n * (pat.target - pat.start) / 6));
   if (l.kind === "check" || l.kind === "final") {
@@ -305,6 +319,8 @@ function campfireHomeHTML() {
   const playable = CF.playable(), mine = playable.filter(x => x.mine);
   const unlock = CF.nextUnlock();
   CF.refreshSummary();
+  const qOn = Timer.t && Timer.t.lessonId === CF_QUICK;
+  const quickBtn = `<button class="btn ghost full cfQuick" data-act="cfStart" data-l="${CF_QUICK}">${icon("timer", 16)} ${qOn ? "Back to your 5 minutes" : "Short on time? 5 minutes"}</button>`;
   const weekDots = [0, 1, 2].map(i => `<span class="wkDot ${i < wk ? "on" : ""}">${i < wk ? icon("check", 18) : ""}</span>`).join("");
   return `
   <section class="cfHero">
@@ -328,7 +344,8 @@ function campfireHomeHTML() {
     <h2>${esc(n.title)}</h2>
     <div class="upMeta">${icon("timer", 16)} 10 min${n.kind === "check" ? " · block check" : ""}${n.kind === "final" ? " · the big one" : ""}</div>
     <button class="btn on big full" data-act="cfStart" data-l="${n.id}">${icon("play", 20)} ${Timer.t && Timer.t.lessonId === n.id ? "Keep going" : "Start"}</button>
-  </section>` : `<section class="upNext done"><h2>Campfire path complete</h2><p class="hint">Every lesson done. Keep the chords warm with Land It in Practice, and go play for people.</p></section>`}
+    ${quickBtn}
+  </section>` : `<section class="upNext done"><h2>Campfire path complete</h2><p class="hint">Every lesson done. Keep the chords warm with Land It in Practice, and go play for people.</p>${quickBtn}</section>`}
 
   <section class="card cfChords">
     <div class="row"><b class="grow">Your campfire chords</b><button class="btn ghost small" data-act="go" data-h="#/land">${icon("bolt", 16)} Land It</button></div>
@@ -413,17 +430,18 @@ VIEWS.cflesson = {
         <button class="stepCheck" data-act="cfStep" data-k="${k}" aria-label="${done ? "Mark not done" : "Mark done"}">${done ? icon("check", 16) : i + 1}</button>
         <div class="stepBody"><p>${esc(st.md || "")}</p>${inner}</div></div>`;
     }).join("");
-    const pctT = Math.min(100, (ms / 600000) * 100), over = ms > 600000;
-    return `<div class="lessonHead"><div class="eyebrow">Lesson ${l.num} of ${CF.lessons().length} · ${esc(l.block.title)}${l.kind === "check" ? " · block check" : ""}</div></div>
+    const q = l.kind === "quick", goal = q ? 300000 : 600000;
+    const pctT = Math.min(100, (ms / goal) * 100), over = ms > goal;
+    return `<div class="lessonHead"><div class="eyebrow">${q ? "Short on time · counts toward your week" : `Lesson ${l.num} of ${CF.lessons().length} · ${esc(l.block.title)}${l.kind === "check" ? " · block check" : ""}`}</div></div>
       <div class="timerBar cfTimer ${over ? "over" : ""}" id="timerBar">
-        ${mine ? `<div class="tRing" style="--p:${pctT}">${icon("timer", 18)}</div><div class="tTime"><b class="liveTime">${fmtTime(ms)}</b><span class="cfTimeNote">${capped ? "stopped at 15" : over ? "bonus time, stops at 15" : "of 10 min"}</span></div>
+        ${mine ? `<div class="tRing" style="--p:${pctT}">${icon("timer", 18)}</div><div class="tTime"><b class="liveTime">${fmtTime(ms)}</b><span class="cfTimeNote">${capped ? "stopped at 15" : over ? "bonus time, stops at 15" : q ? "of 5 min" : "of 10 min"}</span></div>
           ${capped ? "" : `<button class="btn" data-act="timerToggle">${icon(Timer.running() ? "pause" : "play", 18)} ${Timer.running() ? "Pause" : "Resume"}</button>`}`
         : other ? `<div class="tTime"><span>A timer is running for another lesson.</span></div><button class="btn" data-act="timerTakeover" data-l="${l.id}">Start this one</button>`
-        : `<div class="tTime">${icon("timer", 20)}<span>10 minutes. Stops you at 15.</span></div><button class="btn on" data-act="timerStart" data-l="${l.id}">${icon("play", 18)} Start</button>`}
+        : `<div class="tTime">${icon("timer", 20)}<span>${q ? "5 minutes" : "10 minutes"}. Stops you at 15.</span></div><button class="btn on" data-act="timerStart" data-l="${l.id}">${icon("play", 18)} Start</button>`}
       </div>
       ${body}
-      <div class="songFoot"><button class="btn big ${allDone ? "on" : ""} full" data-act="cfFinish" data-l="${l.id}">${CF.isDone(l.id) ? "Done · finish again for practice XP" : allDone ? "Finish lesson" : "Finish for today"}</button>
-      ${!allDone ? `<p class="hint center">Check off every step to complete the lesson. Finishing early still counts toward your week after 5 minutes.</p>` : ""}</div>`;
+      <div class="songFoot"><button class="btn big ${allDone ? "on" : ""} full" data-act="cfFinish" data-l="${l.id}">${q ? "Finish" : CF.isDone(l.id) ? "Done · finish again for practice XP" : allDone ? "Finish lesson" : "Finish for today"}</button>
+      ${!allDone ? `<p class="hint center">${q ? "Land both chords, or put in 5 minutes, and it counts toward your week." : "Check off every step to complete the lesson. Finishing early still counts toward your week after 5 minutes."}</p>` : ""}</div>`;
   },
   onSheetClose(ctx) { renderCtx(ctx); },
 };
@@ -461,10 +479,12 @@ ACT.cfFinish = el => {
   }
   Modal.close();
   if (mine) Timer.stop();
-  const wkBefore = CF.weekCount(), first = allDone && !c.done[l.id];
-  if (allDone) c.done[l.id] = c.done[l.id] || today();
+  const q = l.kind === "quick";
+  const wkBefore = CF.weekCount(), first = !q && allDone && !c.done[l.id];
+  if (allDone && !q) c.done[l.id] = c.done[l.id] || today();
   const counts = allDone || ms >= 5 * 60000;
-  if (counts) CF.markSession(ms, allDone ? l.id : null);
+  if (counts) CF.markSession(ms, allDone && !q ? l.id : null);
+  if (q) { Object.keys(c.steps).filter(k => k.startsWith(CF_QUICK + ":")).forEach(k => delete c.steps[k]); delete c.quick; }
   c.at = Date.now();
   markDay(allDone);
   const xp = Math.round(Math.min(15, ms / 60000) * 2) + (first ? (l.kind ? 30 : 20) : 0);
@@ -476,7 +496,7 @@ ACT.cfFinish = el => {
   setTimeout(() => Modal.open(`<div class="cfDone">
     <div class="wkDots big">${[0, 1, 2].map(i => `<span class="wkDot ${i < wk ? "on" : ""} ${i === wk - 1 && counts ? "pop" : ""}">${i < wk ? icon("check", 22) : ""}</span>`).join("")}</div>
     <h3>${!counts ? "Saved for next time" : wk >= 3 && wkBefore < 3 ? "Three this week. Week done." : wk > 3 ? "Bonus session this week" : `${wk} of 3 this week`}</h3>
-    <p class="muted">${first ? "Lesson complete · " : ""}+${xp} XP${ms ? " · " + fmtTime(ms) : ""}</p>
+    <p class="muted">${first ? "Lesson complete · " : q && counts ? "Chords kept warm · " : ""}+${xp} XP${ms ? " · " + fmtTime(ms) : ""}</p>
     <div class="cfMini"><span>Campfire ready</span><div class="cfBar small"><i style="--w:${Math.max(CF.pct(), 1.5)}%"></i></div><b>${CF.pct()}%</b></div>
     ${nx ? `<p class="hint">Next time: ${esc(nx.title)}</p>` : ""}
     <button class="btn on full" data-act="closeModal">Nice</button></div>`), 120);
@@ -484,8 +504,8 @@ ACT.cfFinish = el => {
 
 /* ---------------- TIMER: 10 minutes, bonus time, hard stop at 15 ---------------- */
 CF.tickCap = t => {
-  const mins = Timer.elapsed() / 60000;
-  if (mins >= 10 && !t.ot) { t.ot = true; App.save(true); AudioKit.sfx.good(); App.toast("That's your 10. Bonus time until 15."); if (Router.ctx && Router.ctx.name === "cflesson") renderCtx(Router.ctx); }
+  const mins = Timer.elapsed() / 60000, goal = t.lessonId === CF_QUICK ? 5 : 10;
+  if (mins >= goal && !t.ot) { t.ot = true; App.save(true); AudioKit.sfx.good(); App.toast(`That's your ${goal}. Bonus time until 15.`); if (Router.ctx && Router.ctx.name === "cflesson") renderCtx(Router.ctx); }
   if (mins >= 15 && !t.capped) {
     t.capped = true; Timer.pause();
     try { AudioKit.Metro.stop(); AudioKit.Mic.stop(); } catch (e) {}
