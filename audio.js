@@ -108,6 +108,7 @@ const sfx = {
   bad()  { pluck(mtof(45), { gain: 0.2, dur: 0.5, damp: 0.47, tone: 900 }); },
   win()  { ["G", "C", "G"].forEach((c, i) => strum(c, { when: i * 0.32, gain: 0.12, up: i === 1 })); },
   start() { strum("Em", { gain: 0.1, spread: 0.06 }); },
+  chime() { pluck(mtof(79), { gain: 0.07, dur: 1.6 }); pluck(mtof(84), { when: 0.14, gain: 0.06, dur: 1.9 }); },
   done() { strum("G", { gain: 0.12, spread: 0.05 }); strum("D", { when: 0.45, gain: 0.1, spread: 0.05 }); strum("G", { when: 0.9, gain: 0.12, spread: 0.07 }); },
 };
 function playTone(freq, dur = 2) { if (Theory.instrument === "piano") pianoNote(freq, { gain: 0.25, dur }); else pluck(freq, { gain: 0.3, dur: Math.max(1.2, dur) }); }
