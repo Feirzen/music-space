@@ -481,6 +481,7 @@ ACT.cfFinish = el => {
   if (mine) Timer.stop();
   const q = l.kind === "quick";
   const wkBefore = CF.weekCount(), first = !q && allDone && !c.done[l.id];
+  const playBefore = new Set(CF.playable().map(x => x.song.id));
   if (allDone && !q) c.done[l.id] = c.done[l.id] || today();
   const counts = allDone || ms >= 5 * 60000;
   if (counts) CF.markSession(ms, allDone && !q ? l.id : null);
@@ -491,15 +492,23 @@ ACT.cfFinish = el => {
   addXP(xp);
   CF.refreshSummary(); App.save();
   const wk = CF.weekCount(), nx = CF.next();
+  /* a song you couldn't play before this lesson: only when the playable count really went up */
+  const playNow = CF.playable(), fresh = playNow.length > playBefore.size ? playNow.filter(x => !playBefore.has(x.song.id)).sort((a, b) => b.mine - a.mine) : [];
+  const un = fresh[0];
   AudioKit.sfx[wk >= 3 && wkBefore < 3 ? "win" : "done"]();
+  if (un) setTimeout(() => AudioKit.sfx.chime(), 1500);
   Router.go("#/path");
   setTimeout(() => Modal.open(`<div class="cfDone">
     <div class="wkDots big">${[0, 1, 2].map(i => `<span class="wkDot ${i < wk ? "on" : ""} ${i === wk - 1 && counts ? "pop" : ""}">${i < wk ? icon("check", 22) : ""}</span>`).join("")}</div>
     <h3>${!counts ? "Saved for next time" : wk >= 3 && wkBefore < 3 ? "Three this week. Week done." : wk > 3 ? "Bonus session this week" : `${wk} of 3 this week`}</h3>
     <p class="muted">${first ? "Lesson complete · " : q && counts ? "Chords kept warm · " : ""}+${xp} XP${ms ? " · " + fmtTime(ms) : ""}</p>
     <div class="cfMini"><span>Campfire ready</span><div class="cfBar small"><i style="--w:${Math.max(CF.pct(), 1.5)}%"></i></div><b>${CF.pct()}%</b></div>
+    ${un ? `<div class="cfUnlock"><span class="grow"><small>New song unlocked${fresh.length > 1 ? ` · +${fresh.length - 1} more` : ""}</small><b>${esc(un.song.title)}</b></span>
+      <button class="btn small on" data-act="cfPlayNew" data-id="${esc(un.song.id)}" data-capo="${un.capo}">${icon("play", 16)} Play it</button></div>` : ""}
     ${nx ? `<p class="hint">Next time: ${esc(nx.title)}</p>` : ""}
-    <button class="btn on full" data-act="closeModal">Nice</button></div>`), 120);
+    <button class="btn ${un ? "ghost" : "on"} full" data-act="closeModal">Nice</button></div>`), 120);
+};
+ACT.cfPlayNew = el => { Modal.close(); AudioKit.sfx.tap(); openCfSong(el.dataset.id, +el.dataset.capo);
 };
 
 /* ---------------- TIMER: 10 minutes, bonus time, hard stop at 15 ---------------- */
